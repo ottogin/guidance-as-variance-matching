@@ -10,6 +10,8 @@
 <meta property="og:image" content="https://ottogin.github.io/guidance-as-variance-matching/assets/teaser.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><ellipse cx='50' cy='50' rx='44' ry='20' transform='rotate(-25 50 50)' fill='none' stroke='%23D65E18' stroke-width='9'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet">
@@ -18,17 +20,23 @@
         onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}]})"></script>
 <style>
   :root { --ink:#25252A; --weak:#927BB9; --strong:#512185; --guided:#D65E18; --muted:#6c757d; }
-  body { background:#fff; color:var(--ink); }
+  body { background:#fff; color:var(--ink); font-family:'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size:16.5px; line-height:1.65; }
+  h1, h2, h3, h4, h5 { letter-spacing:-.015em; }
+  .katex { font-size:1.04em; }
+  .prose { max-width:46rem; }
+  .block { margin-top:3.25rem; margin-bottom:3.25rem; }
+  .navbar .container-xl { flex-wrap:nowrap; gap:1rem; }
+  .navbar-brand { font-size:1rem; font-weight:500; min-width:0; }
   a { color:#2f62c0; }
   .navbar { background:rgba(248,249,250,.92) !important; backdrop-filter:blur(6px); }
   #progress { position:fixed; top:0; left:0; height:3px; width:0; background:var(--guided); z-index:2000; }
-  h1.title { font-weight:700; letter-spacing:-.01em; }
+  h1.title { font-weight:700; letter-spacing:-.025em; line-height:1.1; }
   .authors a { text-decoration:none; }
   .affil { color:var(--muted); }
   .btn-pill { border-radius:.4rem; padding:.45rem 1.1rem; }
   section { scroll-margin-top:72px; }
-  .section-title { font-weight:600; margin-bottom:.8rem; }
-  .figure-caption { color:var(--muted); font-size:.92rem; }
+  .section-title { font-weight:700; font-size:1.6rem; margin-bottom:.9rem; }
+  .figure-caption { color:var(--muted); font-size:.9rem; line-height:1.55; }
   .weak { color:var(--weak); font-weight:600; } .strong { color:var(--strong); font-weight:600; } .guided { color:var(--guided); font-weight:600; }
   /* interactive figure */
   #story-wrap { position:relative; border:1px solid #dee2e6; border-radius:.75rem; overflow:hidden; background:#fff; }
@@ -38,7 +46,9 @@
   .step-text { min-height:9.5rem; }
   .readout { font-variant-numeric:tabular-nums; }
   .nbtn.active { background:var(--weak); border-color:var(--weak); color:#fff; }
-  input[type=range] { accent-color:var(--guided); }
+  .form-range::-webkit-slider-thumb { background:var(--guided); }
+  .form-range::-moz-range-thumb { background:var(--guided); }
+  .form-range:focus::-webkit-slider-thumb { box-shadow:0 0 0 .2rem rgba(214,94,24,.25); }
   .pair img { border-radius:.5rem; width:100%; }
   .pair .lbl { font-size:.8rem; color:var(--muted); margin-top:.25rem; }
   pre { overflow-x:auto; }
@@ -53,8 +63,8 @@
 <header class="sticky-top">
   <nav class="navbar navbar-light bg-light px-3">
     <div class="container-xl">
-      <a class="navbar-brand fw-light text-truncate" href="#top">Guidance as Variance Matching</a>
-      <div class="d-flex gap-3 small">
+      <a class="navbar-brand text-truncate" href="#top">Guidance as Variance Matching</a>
+      <div class="d-flex gap-3 small flex-shrink-0">
         <a class="text-decoration-none text-dark d-none d-sm-inline" href="#how">How it works</a>
         <a class="text-decoration-none text-dark d-none d-sm-inline" href="#rule">The rule</a>
         <a class="text-decoration-none text-dark" href="https://github.com/ottogin/guidance-as-variance-matching"><i class="bi bi-github"></i> Code</a>
@@ -66,7 +76,7 @@
 <main class="container-xl px-3 px-md-4" id="top">
 
   <!-- title block -->
-  <div class="row my-4">
+  <div class="row mt-4 mb-3">
     <div class="col-12">
       <h1 class="title display-5 mb-3">Guidance as Variance Matching</h1>
       <h5 class="authors fw-normal">
@@ -90,21 +100,21 @@
     </div>
   </div>
 
-  <div class="alert alert-warning my-4" role="alert">
+  <div class="alert alert-warning prose mt-4 mb-0" role="alert" style="max-width:none">
     <strong>Key insight:</strong> guidance turns two noisy estimates of the posterior mean into one prediction that
     carries the posterior's mean <em>and</em> covariance. Choosing the scale that matches the data's variance
     recovers the scales practitioners picked by hand.
   </div>
 
   <!-- TL;DR -->
-  <section class="row my-5" id="tldr">
-    <div class="col-12 col-lg-8">
+  <section class="block" id="tldr">
+    <div class="prose">
       <h3 class="section-title">TL;DR</h3>
       <p class="text-muted small mb-2">Skip to
         <a href="#how">How it works</a> &rarr; <a href="#rule">The rule</a> &rarr;
         <a href="#results">Results</a> &rarr; <a href="#citing">Citing</a></p>
       <p>Classifier-free guidance and autoguidance push a diffusion model's prediction away from a weaker one,
-        \(D_w = D_0 + w\,(D_1 - D_0)\). Everyone uses it, and the scale \(w\) is tuned by hand. We find that:</p>
+        <span class="text-nowrap">\(D_w = D_0 + w\,(D_1 - D_0)\)</span>. Everyone uses it, and the scale \(w\) is tuned by hand. We find that:</p>
       <ul>
         <li>At the scales used in practice, guidance makes the prediction of the posterior mean <em>worse</em>, while samples get better.</li>
         <li>Posterior-mean predictions have less variance than the data, and guidance restores it.</li>
@@ -116,9 +126,9 @@
     </div>
   </section>
 
-  <figure class="my-5">
-    <img src="assets/teaser.png" class="img-fluid" alt="Predicted against published guidance scales for eleven models; SD 3.5 Medium samples at three scales; guidance in both directions; checkpoint against retrained weak models">
-    <figcaption class="figure-caption mt-2">
+  <figure class="block" style="margin-top:1.5rem">
+    <a href="assets/teaser.png"><img src="assets/teaser.png" class="img-fluid" alt="Predicted against published guidance scales for eleven models; SD 3.5 Medium samples at three scales; guidance in both directions; checkpoint against retrained weak models"></a>
+    <figcaption class="figure-caption mt-2 prose" style="max-width:62rem">
       (a) Our variance-matched scale recovers the published scales of widely used models across modalities
       (Spearman \(\rho = 0.96\)). (b) SD 3.5 Medium at the FID-optimal, the FD<sub>DINOv2</sub>-optimal and our scale.
       (c) Guidance works in both directions: extrapolating either model away from the other improves both metrics.
@@ -127,9 +137,9 @@
   </figure>
 
   <!-- interactive Fig. 2 -->
-  <section class="my-5" id="how">
+  <section class="block" id="how">
     <h3 class="section-title">How it works</h3>
-    <p class="col-lg-9">A two-dimensional example with real trained networks: the data is a mixture of ten Gaussians,
+    <p class="prose">A two-dimensional example with real trained networks: the data is a mixture of ten Gaussians,
       and we look at one noisy input \(x_t\) at \(\sigma=0.4\). Step through, or press play.</p>
     <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
       <ul class="nav steps gap-1" role="tablist">
@@ -163,7 +173,7 @@
   </section>
 
   <!-- the rule -->
-  <section class="my-5" id="rule">
+  <section class="block" id="rule">
     <h3 class="section-title">The rule</h3>
     <div class="row g-4">
       <div class="col-12 col-lg-7">
@@ -193,16 +203,16 @@ python compute_w.py --guidance cfg \
   </section>
 
   <!-- results -->
-  <section class="my-5" id="results">
+  <section class="block" id="results">
     <h3 class="section-title">Results</h3>
-    <p class="col-lg-9">Our closed-form scale lands close to the scale each model's authors tuned by hand, so its samples
+    <p class="prose">Our closed-form scale lands close to the scale each model's authors tuned by hand, so its samples
       look alike: same prompt and seed, the released scale on the left and ours on the right. Applied per noise level,
       users prefer it to hand-crafted schedules on SD 3.5 Medium.</p>
     <div class="row g-4" id="gallery"></div>
     <p class="small mt-3"><a href="https://github.com/ottogin/guidance-as-variance-matching/tree/main/samples">All samples, including video, audio and motion &rarr;</a></p>
   </section>
 
-  <section class="my-5" id="citing">
+  <section class="block" id="citing">
     <h3 class="section-title">Citing</h3>
 <pre class="bib" id="bib">@article{backour2026guidance,
   title   = {Guidance as Variance Matching},
@@ -309,18 +319,18 @@ document.getElementById('gallery').innerHTML = PAIRS.map(([f, model, prompt, pub
     if (L < 4) return; const hl = Math.min(10, L * 0.4); ctx.save(); ctx.strokeStyle = ctx.fillStyle = color; ctx.lineWidth = lw;
     ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1 - hl * Math.cos(a) * 0.8, y1 - hl * Math.sin(a) * 0.8); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - hl * Math.cos(a - 0.4), y1 - hl * Math.sin(a - 0.4)); ctx.lineTo(x1 - hl * Math.cos(a + 0.4), y1 - hl * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill(); ctx.restore(); }
-  function label(t, p, dx, dy, color, size, align) { ctx.save(); ctx.font = `${size || 15}px "Times New Roman", serif`; ctx.fillStyle = color || C.ink;
+  function label(t, p, dx, dy, color, size, align) { ctx.save(); ctx.font = `${size || 15}px KaTeX_Main, "Times New Roman", serif`; ctx.fillStyle = color || C.ink;
     ctx.textAlign = align || 'left'; ctx.textBaseline = 'middle'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.85)';
     ctx.strokeText(t, X(p[0]) + dx, Y(p[1]) + dy); ctx.fillText(t, X(p[0]) + dx, Y(p[1]) + dy); ctx.restore(); }
   function sublabel(b, sub, p, dx, dy, color, size, align) {   // b with subscript sub, e.g. D_w
-    ctx.save(); const f1 = `italic ${size}px "Times New Roman", serif`, f2 = `${Math.round(size * 0.68)}px "Times New Roman", serif`;
+    ctx.save(); const f1 = `italic ${size}px KaTeX_Math, "Times New Roman", serif`, f2 = `${Math.round(size * 0.68)}px KaTeX_Main, "Times New Roman", serif`;
     ctx.font = f1; const w1 = ctx.measureText(b).width; ctx.font = f2; const w2 = ctx.measureText(sub).width;
     let x = X(p[0]) + dx - (align === 'right' ? w1 + w2 : align === 'center' ? (w1 + w2) / 2 : 0), y = Y(p[1]) + dy;
     ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.fillStyle = color; ctx.textBaseline = 'middle';
     ctx.font = f1; ctx.strokeText(b, x, y); ctx.fillText(b, x, y); ctx.font = f2; ctx.strokeText(sub, x + w1, y + size * 0.3); ctx.fillText(sub, x + w1, y + size * 0.3);
     ctx.restore(); }
   function pairLabels(a, b, la, ca, lb, cb) {   // labels on either side of the segment a -> b, perpendicular to it
-    const dx = X(b[0]) - X(a[0]), dy = Y(b[1]) - Y(a[1]), L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, k = 15;
+    const dx = X(b[0]) - X(a[0]), dy = Y(b[1]) - Y(a[1]), L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, k = 19;
     sublabel(la[0], la[1], a, nx * k, ny * k, ca, 18, 'center'); sublabel(lb[0], lb[1], b, -nx * k, -ny * k, cb, 18, 'center'); }
   function inset(P, color) {   // magnified cloud with Sigma rescaled to the cloud's trace, bottom-left
     const c = cov(P), tr = c.M[0][0] + c.M[1][1], s = W * 0.22, x0 = 12, y0 = H - s - 12, ec = eig(c.M), half = 3.2 * Math.sqrt(ec.l1), k = s / (2 * half);
@@ -430,6 +440,7 @@ document.getElementById('gallery').innerHTML = PAIRS.map(([f, model, prompt, pub
   const q = new URLSearchParams(location.search), s0 = Math.min(3, Math.max(0, (+q.get('step') || 1) - 1));
   layout(); setN(D.weak); setStep(s0); if (s0 === 3) { st.w = ws; sl.value = ws; draw(); }
   addEventListener('resize', () => { layout(); draw(); });
+  Promise.all(['italic 18px KaTeX_Math', '16px KaTeX_Main'].map(f => document.fonts.load(f))).then(() => draw()).catch(() => {});
   // play once when the figure first scrolls into view
   const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { play(); io.disconnect(); } }, {threshold: 0.5});
   if (!q.has('step')) io.observe(cv);
