@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guidance as Variance Matching</title>
+<meta name="description" content="A closed-form rule for the guidance scale of diffusion models: match the variance of the guided prediction to that of the data.">
+<meta property="og:title" content="Guidance as Variance Matching">
+<meta property="og:description" content="A closed-form guidance scale for diffusion models that recovers the hand-picked scales of eleven widely used models.">
+<meta property="og:image" content="https://ottogin.github.io/guidance-as-variance-matching/assets/teaser.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><ellipse cx='50' cy='50' rx='44' ry='20' transform='rotate(-25 50 50)' fill='none' stroke='%23D65E18' stroke-width='9'/></svg>">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}]})"></script>
+<style>
+  :root { --ink:#25252A; --weak:#927BB9; --strong:#512185; --guided:#D65E18; --muted:#6c757d; }
+  body { background:#fff; color:var(--ink); }
+  a { color:#2f62c0; }
+  .navbar { background:rgba(248,249,250,.92) !important; backdrop-filter:blur(6px); }
+  #progress { position:fixed; top:0; left:0; height:3px; width:0; background:var(--guided); z-index:2000; }
+  h1.title { font-weight:700; letter-spacing:-.01em; }
+  .authors a { text-decoration:none; }
+  .affil { color:var(--muted); }
+  .btn-pill { border-radius:999px; padding:.45rem 1.1rem; }
+  section { scroll-margin-top:72px; }
+  .section-title { font-weight:600; margin-bottom:.8rem; }
+  .figure-caption { color:var(--muted); font-size:.92rem; }
+  .weak { color:var(--weak); font-weight:600; } .strong { color:var(--strong); font-weight:600; } .guided { color:var(--guided); font-weight:600; }
+  /* interactive figure */
+  #story-wrap { position:relative; border:1px solid #dee2e6; border-radius:.75rem; overflow:hidden; background:#fff; }
+  #story { display:block; width:100%; height:auto; touch-action:pan-y; }
+  .steps .nav-link { color:var(--ink); border-radius:999px; padding:.3rem .85rem; font-size:.95rem; }
+  .steps .nav-link.active { background:var(--ink); color:#fff; }
+  .step-text { min-height:9.5rem; }
+  .readout { font-variant-numeric:tabular-nums; }
+  .nbtn.active { background:var(--weak); border-color:var(--weak); color:#fff; }
+  input[type=range] { accent-color:var(--guided); }
+  .pair img { border-radius:.5rem; width:100%; }
+  .pair .lbl { font-size:.8rem; color:var(--muted); margin-top:.25rem; }
+  pre { overflow-x:auto; }
+  pre.bib { background:#f6f7f9; border-radius:.5rem; padding:1rem; font-size:.85rem; white-space:pre-wrap; }
+  .eq { overflow-x:auto; }
+  footer { color:var(--muted); font-size:.85rem; }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<header class="sticky-top">
+  <nav class="navbar navbar-light bg-light px-3">
+    <div class="container-xl">
+      <a class="navbar-brand fw-light text-truncate" href="#top">Guidance as Variance Matching</a>
+      <div class="d-flex gap-3 small">
+        <a class="text-decoration-none text-dark d-none d-sm-inline" href="#how">How it works</a>
+        <a class="text-decoration-none text-dark d-none d-sm-inline" href="#rule">The rule</a>
+        <a class="text-decoration-none text-dark" href="https://github.com/ottogin/guidance-as-variance-matching"><i class="bi bi-github"></i> Code</a>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<main class="container-xl px-3 px-md-4" id="top">
+
+  <!-- title block -->
+  <div class="row my-4">
+    <div class="col-12">
+      <h1 class="title display-5 mb-3">Guidance as Variance Matching</h1>
+      <h5 class="authors fw-normal">
+        <span>Ali&nbsp;Backour<sup>1*</sup>, </span>
+        <span><a href="https://lukoianov.com">Artem&nbsp;Lukoianov</a><sup>1*</sup>, </span>
+        <span>Frank&nbsp;Permenter<sup>2</sup>, </span>
+        <span><a href="https://people.csail.mit.edu/tommi/">Tommi&nbsp;Jaakkola</a><sup>1</sup>, </span>
+        <span><a href="https://people.csail.mit.edu/jsolomon/">Justin&nbsp;Solomon</a><sup>1</sup>, </span>
+        <span><a href="https://www.vincentsitzmann.com">Vincent&nbsp;Sitzmann</a><sup>1</sup></span>
+      </h5>
+      <div class="affil">
+        <sup>1</sup>Massachusetts&nbsp;Institute&nbsp;of&nbsp;Technology&ensp;
+        <sup>2</sup>Toyota&nbsp;Research&nbsp;Institute&ensp;
+        <span class="ms-1">*&nbsp;equal contribution</span>
+      </div>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <a class="btn btn-dark btn-pill disabled" aria-disabled="true"><i class="bi bi-file-earmark-text"></i> Paper (arXiv, coming soon)</a>
+        <a class="btn btn-dark btn-pill" href="https://github.com/ottogin/guidance-as-variance-matching"><i class="bi bi-github"></i> Code</a>
+        <a class="btn btn-outline-dark btn-pill" href="#citing"><i class="bi bi-quote"></i> BibTeX</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-warning my-4" role="alert">
+    <strong>Key insight:</strong> guidance turns two noisy estimates of the posterior mean into one prediction that
+    carries the posterior's mean <em>and</em> covariance. Choosing the scale that matches the data's variance
+    recovers the scales practitioners picked by hand.
+  </div>
+
+  <!-- TL;DR -->
+  <section class="row my-5" id="tldr">
+    <div class="col-12 col-lg-8">
+      <h3 class="section-title">TL;DR</h3>
+      <p class="text-muted small mb-2">Skip to
+        <a href="#how">How it works</a> &rarr; <a href="#rule">The rule</a> &rarr;
+        <a href="#results">Results</a> &rarr; <a href="#citing">Citing</a></p>
+      <p>Classifier-free guidance and autoguidance push a diffusion model's prediction away from a weaker one,
+        \(D_w = D_0 + w\,(D_1 - D_0)\). Everyone uses it, and the scale \(w\) is tuned by hand. We find that:</p>
+      <ul>
+        <li>At the scales used in practice, guidance makes the prediction of the posterior mean <em>worse</em>, while samples get better.</li>
+        <li>Posterior-mean predictions have less variance than the data, and guidance restores it.</li>
+        <li>Picking \(w\) so that the guided predictions vary as much as the data recovers the published scales of
+          <strong>eleven models</strong> across image, video, audio, motion and world generation, with no tuning.</li>
+        <li>Each model's error scatters like a scaled-down copy of the posterior covariance; guidance scales the
+          difference of two such errors back up to a sample of the posterior.</li>
+      </ul>
+    </div>
+  </section>
+
+  <figure class="my-5">
+    <img src="assets/teaser.png" class="img-fluid" alt="Predicted against published guidance scales for eleven models; SD 3.5 Medium samples at three scales; guidance in both directions; checkpoint against retrained weak models">
+    <figcaption class="figure-caption mt-2">
+      (a) Our variance-matched scale recovers the published scales of widely used models across modalities
+      (Spearman \(\rho = 0.96\)). (b) SD 3.5 Medium at the FID-optimal, the FD<sub>DINOv2</sub>-optimal and our scale.
+      (c) Guidance works in both directions: extrapolating either model away from the other improves both metrics.
+      (d) Guiding a model with its own earlier checkpoint needs a larger scale than guiding it with a retrained model.
+    </figcaption>
+  </figure>
+
+  <!-- interactive Fig. 2 -->
+  <section class="my-5" id="how">
+    <h3 class="section-title">How it works</h3>
+    <p class="col-lg-9">A two-dimensional example with real trained networks: the data is a mixture of ten Gaussians,
+      and we look at one noisy input \(x_t\) at \(\sigma=0.4\). Step through, or press play.</p>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <ul class="nav steps gap-1" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-step="0">1&nbsp;Posterior</button></li>
+        <li class="nav-item"><button class="nav-link" data-step="1">2&nbsp;Retrained models</button></li>
+        <li class="nav-item"><button class="nav-link" data-step="2">3&nbsp;Weak and strong</button></li>
+        <li class="nav-item"><button class="nav-link" data-step="3">4&nbsp;Guidance</button></li>
+      </ul>
+      <button id="play" class="btn btn-sm btn-outline-dark btn-pill ms-auto"><i class="bi bi-play-fill"></i> Play</button>
+    </div>
+    <div class="row g-4 align-items-start">
+      <div class="col-12 col-lg-7">
+        <div id="story-wrap"><canvas id="story" width="760" height="500" aria-label="Interactive figure: predictions of trained denoisers around the posterior"></canvas></div>
+      </div>
+      <div class="col-12 col-lg-5">
+        <div class="step-text" id="step-text"></div>
+        <div id="ctl-n" class="mt-3 d-none">
+          <div class="small text-muted mb-1">Training-set size \(N\)</div>
+          <div class="btn-group btn-group-sm flex-wrap" role="group" id="nbtns"></div>
+          <div class="readout small mt-2" id="n-readout"></div>
+        </div>
+        <div id="ctl-w" class="mt-3 d-none">
+          <label for="wslider" class="small text-muted">Guidance scale \(w\) = <span class="readout fw-semibold" id="wval"></span></label>
+          <input type="range" class="form-range" id="wslider" min="0" max="7" step="0.01" value="1">
+          <div class="d-flex justify-content-between small text-muted"><span>0: weak model</span><span>1: strong model</span><span id="wstar-lbl"></span></div>
+          <div class="readout small mt-2" id="w-readout"></div>
+          <button class="btn btn-sm btn-outline-secondary btn-pill mt-2" id="snap">Set \(w = w^\star\)</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- the rule -->
+  <section class="my-5" id="rule">
+    <h3 class="section-title">The rule</h3>
+    <div class="row g-4">
+      <div class="col-12 col-lg-7">
+        <p>Write the guided prediction as \(D_w = D_0 + w\,(D_1-D_0)\), where \(D_1\) is the primary prediction
+          (conditional, or the strong model) and \(D_0\) the reference (unconditional, or the weak model). Over noisy
+          versions \(x_t\) of a few hundred calibration examples, choose \(w\) so that the guided predictions vary as
+          much as the clean data:</p>
+        <div class="eq">$$\operatorname{Var}_{x_t\sim p_t}\!\big[D_w(x_t)\big] \;=\; \operatorname{Var}_{x_0\sim p_{\text{data}}}\!\big[x_0\big].$$</div>
+        <p>The left side is quadratic in \(w\), so the scale has a closed form, per noise level or as one constant:</p>
+        <div class="eq">$$w^\star(t)=\frac{b(t)\pm\sqrt{b(t)^2-a(t)\,c(t)}}{a(t)},\qquad
+          \begin{aligned} a&=\operatorname{Var}[D_1-D_0],\\ b&=\operatorname{Var}[D_0]-\operatorname{tr}\operatorname{Cov}(D_0,D_1),\\ c&=\operatorname{Var}[D_0]-\operatorname{Var}[x_0]. \end{aligned}$$</div>
+        <p>It needs one pass of the two networks over the calibration inputs; nothing is sampled. When \(c<0\) the two
+          roots have opposite signs, so the rule also predicts that guidance can work with a negative scale.</p>
+      </div>
+      <div class="col-12 col-lg-5">
+        <div class="p-3 rounded-3" style="background:#f6f7f9">
+          <div class="small text-muted mb-2">Compute it for your model</div>
+<pre class="mb-0 small"><code>pip install -e .
+python compute_w.py --model toy
+python compute_w.py --guidance cfg \
+  --model stabilityai/stable-diffusion-3.5-medium \
+  --dataset coco</code></pre>
+          <a class="small" href="https://github.com/ottogin/guidance-as-variance-matching">Code and every experiment of the paper &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- results -->
+  <section class="my-5" id="results">
+    <h3 class="section-title">Results</h3>
+    <p class="col-lg-9">Our closed-form scale lands close to the scale each model's authors tuned by hand, so its samples
+      look alike: same prompt and seed, the released scale on the left and ours on the right. Applied per noise level,
+      users prefer it to hand-crafted schedules on SD 3.5 Medium.</p>
+    <div class="row g-4" id="gallery"></div>
+    <p class="small mt-3"><a href="https://github.com/ottogin/guidance-as-variance-matching/tree/main/samples">All samples, including video, audio and motion &rarr;</a></p>
+  </section>
+
+  <section class="my-5" id="abstract">
+    <h3 class="section-title">Abstract</h3>
+    <p class="col-lg-10">Guidance repels the prediction of a diffusion model away from a weaker reference prediction.
+      It substantially improves sample quality, but its mechanism remains poorly understood. We first find that, at the
+      scales used in practice, guidance does not improve the prediction of the posterior mean (the model's training
+      target); it makes the prediction worse, while samples improve. Second, posterior-mean predictions have less
+      variance than the data, and we find that guidance restores it. We introduce <em>variance-matched guidance</em>:
+      a closed-form rule that picks the guidance scale by matching the variance of the guided predictions to that of
+      the data. Without tuning, it recovers the hand-picked scales of eleven widely used models across image, video,
+      audio, motion, and world generation; to our knowledge, no previous explanation of guidance predicts them.
+      Applied per noise level, it yields a schedule without tuned hyperparameters that users prefer to hand-crafted
+      ones on SD 3.5 Medium. Third, we offer an interpretation of the mechanism behind guidance: each model makes a
+      random error in predicting the posterior mean, and guidance rescales the difference of these errors into a
+      sample with the posterior's covariance, which improves sampling. This view also suggests two new hypotheses that
+      our experiments support: guidance can work with negative scales, and guiding a model with its own checkpoint
+      needs a larger scale than guiding it with an independently trained model.</p>
+  </section>
+
+  <section class="my-5" id="citing">
+    <h3 class="section-title">Citing</h3>
+<pre class="bib" id="bib">@article{backour2026guidance,
+  title   = {Guidance as Variance Matching},
+  author  = {Backour, Ali and Lukoianov, Artem and Permenter, Frank and
+             Jaakkola, Tommi and Solomon, Justin and Sitzmann, Vincent},
+  journal = {arXiv preprint},
+  year    = {2026}
+}</pre>
+    <button class="btn btn-sm btn-outline-dark btn-pill" id="copybib"><i class="bi bi-clipboard"></i> Copy</button>
+  </section>
+</main>
+
+<footer class="container-xl px-3 px-md-4 py-4 border-top">
+  Website layout adapted from <a href="https://lukoianov.com/sdi">SDI</a>.
+</footer>
+
+<script>
+// ---------------------------------------------------------------- page chrome
+addEventListener('scroll', () => {
+  const h = document.documentElement, p = h.scrollTop / Math.max(1, h.scrollHeight - h.clientHeight);
+  document.getElementById('progress').style.width = (100 * p) + '%';
+}, {passive: true});
+document.getElementById('copybib').onclick = async (e) => {
+  try { await navigator.clipboard.writeText(document.getElementById('bib').textContent); e.currentTarget.innerHTML = '<i class="bi bi-check2"></i> Copied'; } catch (_) {}
+};
+
+// ---------------------------------------------------------------- sample gallery
+const PAIRS = [
+  ['sd3.5-large_13-dog-stands-bow-white-sailboat', 'SD 3.5 Large', 'A dog stands on the bow of a white sailboat in the water.', '3.5', 'schedule, mean 4.88'],
+  ['flux.2-klein-4b_13-lady-bug-photography-cinematic-light', 'FLUX.2 [klein] 4B', 'lady bug, photography, cinematic light', '4', 'schedule, mean 8.11'],
+  ['flux.2-klein-4b_11-futuristic-wolf-inside-huge-electric', 'FLUX.2 [klein] 4B', 'Futuristic wolf inside a huge electric glass ball', '4', 'schedule, mean 8.11'],
+  ['sd1.5_06-zebras-standing-near-each-other', 'SD 1.5', 'Two zebras that are standing near each other in the dirt.', '7.5', 'schedule, mean 13.3'],
+  ['sd3.5-large_11-chocolate-doughnut-sprinkles-basket-next', 'SD 3.5 Large', 'A chocolate doughnut with sprinkles in a basket next to a cup of coffee.', '3.5', 'schedule, mean 4.88'],
+  ['flux.2-klein-4b_05-flight-back-earth-spaceship-solar', 'FLUX.2 [klein] 4B', 'flight back to earth, spaceship, solar system', '4', 'schedule, mean 8.11'],
+];
+document.getElementById('gallery').innerHTML = PAIRS.map(([f, model, prompt, pub, ours]) => `
+  <div class="col-12 col-md-6 col-xl-4 pair">
+    <div class="row g-1">
+      <div class="col-6"><img loading="lazy" src="assets/samples/${f}_pub.jpg" alt="${model}, published scale: ${prompt}"><div class="lbl">Published, w = ${pub}</div></div>
+      <div class="col-6"><img loading="lazy" src="assets/samples/${f}_ours.jpg" alt="${model}, our scale: ${prompt}"><div class="lbl">Ours, ${ours}</div></div>
+    </div>
+    <div class="small mt-1"><span class="fw-semibold">${model}</span> <span class="text-muted fst-italic">&ldquo;${prompt}&rdquo;</span></div>
+  </div>`).join('');
+
+// ---------------------------------------------------------------- interactive figure
+(async function () {
+  const D = await (await fetch('assets/story.json')).json();
+  const cv = document.getElementById('story'), ctx = cv.getContext('2d');
+  const C = {ink: '#25252A', weak: '#927BB9', strong: '#512185', guided: '#D65E18', grid: '#C8CBD1'};
+  const NS = Object.keys(D.clouds).map(Number).sort((a, b) => a - b);
+  const mu = D.mu, S = D.Sigma, xt = D.xt, trS = S[0][0] + S[1][1];
+
+  // 2x2 symmetric eigen-decomposition: major/minor variances and the major axis angle
+  const eig = (M) => { const a = M[0][0], b = M[0][1], d = M[1][1], m = (a + d) / 2, r = Math.hypot((a - d) / 2, b);
+    return {l1: m + r, l2: Math.max(m - r, 1e-12), th: 0.5 * Math.atan2(2 * b, a - d)}; };
+  const cov = (P) => { const n = P.length; let mx = 0, my = 0; for (const p of P) { mx += p[0]; my += p[1]; } mx /= n; my /= n;
+    let a = 0, b = 0, d = 0; for (const p of P) { const u = p[0] - mx, v = p[1] - my; a += u * u; b += u * v; d += v * v; }
+    return {mean: [mx, my], M: [[a / (n - 1), b / (n - 1)], [b / (n - 1), d / (n - 1)]]}; };
+  const ES = eig(S);
+
+  // the view: centred between mu and x_t, wide enough for Sigma's 2.6-s.d. ellipse
+  const cx = (mu[0] + xt[0]) / 2, cy = (mu[1] + xt[1]) / 2;
+  let W, H, sc, ox, oy;
+  function layout() {
+    const w = cv.parentElement.clientWidth, dpr = window.devicePixelRatio || 1;
+    W = w; H = Math.round(w * 0.52);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const k = 2.45, c2 = Math.cos(ES.th) ** 2, s2 = 1 - c2;                       // bounding box of the k-s.d. ellipse and x_t
+    const hx = Math.max(k * Math.sqrt(ES.l1 * c2 + ES.l2 * s2) + Math.abs(mu[0] - cx), Math.abs(xt[0] - cx) + 0.05);
+    const hy = Math.max(k * Math.sqrt(ES.l1 * s2 + ES.l2 * c2) + Math.abs(mu[1] - cy), Math.abs(xt[1] - cy) + 0.05);
+    sc = Math.min(W / (2 * hx * 1.04), H / (2 * hy * 1.12)); ox = W / 2; oy = H / 2;
+    heat = null;
+  }
+  const X = (x) => ox + (x - cx) * sc, Y = (y) => oy - (y - cy) * sc;
+
+  // posterior density p(x0 | x_t) of the mixture, as a light heat map
+  let heat = null;
+  function makeHeat() {
+    const s2 = D.sigma ** 2, c2 = D.s_comp ** 2, v = c2 * s2 / (c2 + s2), g = c2 / (c2 + s2);
+    const comps = D.means.map(m => { const d2 = (xt[0] - m[0]) ** 2 + (xt[1] - m[1]) ** 2; return {lw: -d2 / (2 * (c2 + s2)), m: [m[0] + g * (xt[0] - m[0]), m[1] + g * (xt[1] - m[1])]}; });
+    const mx = Math.max(...comps.map(c => c.lw)); let Z = 0; comps.forEach(c => { c.w = Math.exp(c.lw - mx); Z += c.w; }); comps.forEach(c => c.w /= Z);
+    const k = 3, w = Math.ceil(W / k), h = Math.ceil(H / k), img = new ImageData(w, h), vals = new Float32Array(w * h); let vmax = 0;
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const x = cx + (i * k - ox) / sc, y = cy - (j * k - oy) / sc; let p = 0;
+      for (const c of comps) p += c.w * Math.exp(-((x - c.m[0]) ** 2 + (y - c.m[1]) ** 2) / (2 * v));
+      vals[j * w + i] = p; vmax = Math.max(vmax, p); }
+    const lo = [255, 255, 255], hi = [150, 163, 180];
+    for (let q = 0; q < vals.length; q++) { const t = Math.pow(vals[q] / vmax, 0.55);
+      img.data[4 * q] = lo[0] + (hi[0] - lo[0]) * t; img.data[4 * q + 1] = lo[1] + (hi[1] - lo[1]) * t; img.data[4 * q + 2] = lo[2] + (hi[2] - lo[2]) * t; img.data[4 * q + 3] = 255; }
+    const off = document.createElement('canvas'); off.width = w; off.height = h; off.getContext('2d').putImageData(img, 0, 0);
+    heat = off;
+  }
+
+  function ellipse(m, M, k, color, lw, dash) {
+    const e = eig(M); ctx.save(); ctx.beginPath();
+    ctx.ellipse(X(m[0]), Y(m[1]), k * Math.sqrt(e.l1) * sc, k * Math.sqrt(e.l2) * sc, -e.th, 0, 2 * Math.PI);
+    ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash(dash || []); ctx.stroke(); ctx.restore(); }
+  function dots(P, color, r, alpha) { ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = color;
+    for (const p of P) { ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), r, 0, 2 * Math.PI); ctx.fill(); } ctx.restore(); }
+  function point(p, color, r, ring) { ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), r, 0, 2 * Math.PI); ctx.fillStyle = color; ctx.fill();
+    if (ring !== false) { ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke(); } }
+  function arrow(p, q, color, lw) { const x0 = X(p[0]), y0 = Y(p[1]), x1 = X(q[0]), y1 = Y(q[1]), a = Math.atan2(y1 - y0, x1 - x0), L = Math.hypot(x1 - x0, y1 - y0);
+    if (L < 4) return; const hl = Math.min(10, L * 0.4); ctx.save(); ctx.strokeStyle = ctx.fillStyle = color; ctx.lineWidth = lw;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1 - hl * Math.cos(a) * 0.8, y1 - hl * Math.sin(a) * 0.8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - hl * Math.cos(a - 0.4), y1 - hl * Math.sin(a - 0.4)); ctx.lineTo(x1 - hl * Math.cos(a + 0.4), y1 - hl * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill(); ctx.restore(); }
+  function label(t, p, dx, dy, color, size, align) { ctx.save(); ctx.font = `${size || 15}px "Times New Roman", serif`; ctx.fillStyle = color || C.ink;
+    ctx.textAlign = align || 'left'; ctx.textBaseline = 'middle'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.85)';
+    ctx.strokeText(t, X(p[0]) + dx, Y(p[1]) + dy); ctx.fillText(t, X(p[0]) + dx, Y(p[1]) + dy); ctx.restore(); }
+  function sublabel(b, sub, p, dx, dy, color, size, align) {   // b with subscript sub, e.g. D_w
+    ctx.save(); const f1 = `italic ${size}px "Times New Roman", serif`, f2 = `${Math.round(size * 0.68)}px "Times New Roman", serif`;
+    ctx.font = f1; const w1 = ctx.measureText(b).width; ctx.font = f2; const w2 = ctx.measureText(sub).width;
+    let x = X(p[0]) + dx - (align === 'right' ? w1 + w2 : align === 'center' ? (w1 + w2) / 2 : 0), y = Y(p[1]) + dy;
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.fillStyle = color; ctx.textBaseline = 'middle';
+    ctx.font = f1; ctx.strokeText(b, x, y); ctx.fillText(b, x, y); ctx.font = f2; ctx.strokeText(sub, x + w1, y + size * 0.3); ctx.fillText(sub, x + w1, y + size * 0.3);
+    ctx.restore(); }
+  function pairLabels(a, b, la, ca, lb, cb) {   // labels on either side of the segment a -> b, perpendicular to it
+    const dx = X(b[0]) - X(a[0]), dy = Y(b[1]) - Y(a[1]), L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, k = 15;
+    sublabel(la[0], la[1], a, nx * k, ny * k, ca, 18, 'center'); sublabel(lb[0], lb[1], b, -nx * k, -ny * k, cb, 18, 'center'); }
+  function inset(P, color) {   // magnified cloud with Sigma rescaled to the cloud's trace, bottom-left
+    const c = cov(P), tr = c.M[0][0] + c.M[1][1], s = W * 0.22, x0 = 12, y0 = H - s - 12, ec = eig(c.M), half = 3.2 * Math.sqrt(ec.l1), k = s / (2 * half);
+    if (k / sc < 1.8) return;                 // big clouds need no magnifier
+    ctx.save(); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#9aa0a6'; ctx.lineWidth = 1; ctx.fillRect(x0, y0, s, s); ctx.strokeRect(x0, y0, s, s);
+    ctx.beginPath(); ctx.rect(x0, y0, s, s); ctx.clip(); ctx.fillStyle = color; ctx.globalAlpha = 0.75;
+    for (const p of P) { ctx.beginPath(); ctx.arc(x0 + s / 2 + (p[0] - c.mean[0]) * k, y0 + s / 2 - (p[1] - c.mean[1]) * k, 1.6, 0, 2 * Math.PI); ctx.fill(); }
+    ctx.globalAlpha = 1; const f = Math.sqrt(tr / trS);
+    ctx.beginPath(); ctx.ellipse(x0 + s / 2, y0 + s / 2, 2 * Math.sqrt(ES.l1) * f * k, 2 * Math.sqrt(ES.l2) * f * k, -ES.th, 0, 2 * Math.PI);
+    ctx.setLineDash([5, 3]); ctx.strokeStyle = C.ink; ctx.stroke(); ctx.setLineDash([]);
+    ctx.font = '13px system-ui, sans-serif'; ctx.fillStyle = C.ink; ctx.fillText(`×${Math.round(k / sc)}`, x0 + 6, y0 + 16);
+    ctx.restore(); }
+
+  // one pair to follow: D1 - D0 along Sigma's long axis, the guided point near the 2-s.d. ring
+  const P0 = D.clouds[D.weak], P1 = D.clouds[D.strong], ws = D.wstar;
+  const Sinv = (() => { const [[a, b], [, d]] = S, det = a * d - b * b; return [[d / det, -b / det], [-b / det, a / det]]; })();
+  const u = [Math.cos(ES.th), Math.sin(ES.th)];
+  let run = 0, best = -1;
+  P0.forEach((p, r) => { const d = [P1[r][0] - p[0], P1[r][1] - p[1]], L = Math.hypot(d[0], d[1]);
+    const ang = Math.acos(Math.min(1, Math.abs(d[0] * u[0] + d[1] * u[1]) / (L || 1))) * 180 / Math.PI;
+    const g = [p[0] + ws * d[0] - mu[0], p[1] + ws * d[1] - mu[1]], mh = Math.sqrt(g[0] * (Sinv[0][0] * g[0] + Sinv[0][1] * g[1]) + g[1] * (Sinv[1][0] * g[0] + Sinv[1][1] * g[1]));
+    if (ang < 15 && mh > 1.2 && mh < 2.1 && L > best) { best = L; run = r; } });
+
+  // ------------------------------------------------ state, drawing and the four steps
+  const st = {step: 0, N: D.weak, w: 1, t: 1};
+  const guided = (w) => P0.map((p, r) => [p[0] + w * (P1[r][0] - p[0]), p[1] + w * (P1[r][1] - p[1])]);
+  function draw() {
+    if (!heat) makeHeat();
+    ctx.clearRect(0, 0, W, H); ctx.drawImage(heat, 0, 0, W, H);
+    ellipse(mu, S, 2, C.ink, 1.4, [7, 5]);
+    if (st.step === 0) {
+      point(xt, C.ink, 5); arrow(xt, mu, '#55575E', 1.6); point(mu, C.ink, 3.5, false);
+      sublabel('x', 't', xt, -10, 0, C.ink, 19, 'right');
+      label('μ = E[x₀ | xₜ]', mu, 10, 14, C.ink, 16);
+      const v = [-Math.sin(ES.th), Math.cos(ES.th)], q = [mu[0] + 1.3 * Math.sqrt(ES.l1) * u[0] - 2.05 * Math.sqrt(ES.l2) * v[0] * Math.sign(v[1]), mu[1] + 1.3 * Math.sqrt(ES.l1) * u[1] - 2.05 * Math.sqrt(ES.l2) * Math.abs(v[1])];
+      label('Σ = Cov(x₀ | xₜ)', q, 0, 14, C.ink, 16, 'center');
+    }
+    if (st.step === 1) {
+      const P = D.clouds[st.N]; dots(P, st.N <= 256 ? C.weak : C.strong, 1.9, 0.8); inset(P, st.N <= 256 ? C.weak : C.strong);
+    }
+    if (st.step === 2) {
+      dots(P0, C.weak, 1.8, 0.55); dots(P1, C.strong, 1.8, 0.8);
+      arrow(P0[run], P1[run], C.ink, 1.6); point(P0[run], C.weak, 5); point(P1[run], C.strong, 5);
+      pairLabels(P0[run], P1[run], ['D', '0'], C.weak, ['D', '1'], C.strong);
+      ctx.save(); ctx.beginPath(); ctx.arc(X(P0[run][0]), Y(P0[run][1]), 11, 0, 2 * Math.PI); ctx.strokeStyle = C.ink; ctx.lineWidth = 1.3; ctx.stroke(); ctx.restore();
+    }
+    if (st.step === 3) {
+      const G = guided(st.w), c = cov(G);
+      dots(G, C.guided, 1.9, 0.7);
+      ellipse(c.mean, c.M, 2, C.guided, 2);
+      arrow(P0[run], G[run], C.guided, 2); point(P0[run], C.weak, 5); point(P1[run], C.strong, 5); point(G[run], C.guided, 5.5);
+      pairLabels(P0[run], G[run], ['D', '0'], C.weak, ['D', 'w'], C.guided);
+      const r = (c.M[0][0] + c.M[1][1]) / trS;
+      document.getElementById('wval').textContent = st.w.toFixed(2);
+      document.getElementById('w-readout').innerHTML = `spread of the guided predictions = <b>${r.toFixed(2)}</b> × tr Σ` +
+        (Math.abs(st.w - ws) < 0.03 ? ' <span class="guided">(matched)</span>' : '');
+    }
+  }
+  const TEXT = [
+    `<h5>1. The posterior</h5><p>Noise hides where \\(x_t\\) came from: several clean points \\(x_0\\) are plausible.
+     The posterior \\(p(x_0\\mid x_t)\\) has mean \\(\\mu\\) and covariance \\(\\Sigma\\) (dashed, 2 s.d.).
+     A diffusion model is trained to predict only \\(\\mu\\).</p>`,
+    `<h5>2. Retrained models miss \\(\\mu\\) along \\(\\Sigma\\)</h5><p>We retrain the same network 256 times, each on its own
+     \\(N\\) training points, and plot what each predicts at \\(x_t\\). The predictions scatter around \\(\\mu\\) as a
+     scaled-down copy of \\(\\Sigma\\) (inset: magnified, \\(\\Sigma\\) rescaled), and the copy shrinks as \\(1/N\\).</p>`,
+    `<h5>3. A weak and a strong model</h5><p>A <span class="weak">weak</span> model (\\(N=${D.weak}\\)) scatters widely, a
+     <span class="strong">strong</span> one (\\(N=${D.strong}\\)) tightly, in the same shape. For one pair, the difference
+     \\(D_1-D_0\\) is a random vector along \\(\\Sigma\\).</p>`,
+    `<h5>4. Guidance scales it back up</h5><p>The <span class="guided">guided prediction</span> \\(D_w=D_0+w\\,(D_1-D_0)\\)
+     extrapolates past the strong model. Over all 256 pairs its spread grows with \\(w\\); at \\(w^\\star\\) it matches
+     \\(\\Sigma\\) in size and shape, so each guided prediction is a draw from (a Gaussian approximation of) the posterior.
+     Drag the slider.</p>`];
+  function setStep(k, fromPlay) {
+    st.step = k; if (!fromPlay) stopPlay();
+    document.querySelectorAll('.steps .nav-link').forEach(b => b.classList.toggle('active', +b.dataset.step === k));
+    const tx = document.getElementById('step-text'); tx.innerHTML = TEXT[k];
+    if (window.renderMathInElement) renderMathInElement(tx, {delimiters: [{left: '\\(', right: '\\)', display: false}]});
+    document.getElementById('ctl-n').classList.toggle('d-none', k !== 1);
+    document.getElementById('ctl-w').classList.toggle('d-none', k !== 3);
+    draw();
+  }
+  // N buttons
+  const nb = document.getElementById('nbtns');
+  nb.innerHTML = NS.map(n => `<button class="btn btn-outline-secondary nbtn" data-n="${n}">${n}</button>`).join('');
+  function setN(n) { st.N = n; nb.querySelectorAll('.nbtn').forEach(b => b.classList.toggle('active', +b.dataset.n === n));
+    document.getElementById('n-readout').innerHTML = `spread = tr Σ / ${D.m[n].toFixed(0)}`; draw(); }
+  nb.onclick = (e) => { const b = e.target.closest('.nbtn'); if (b) { stopPlay(); setN(+b.dataset.n); } };
+  // w slider
+  const sl = document.getElementById('wslider');
+  document.getElementById('wstar-lbl').innerHTML = `w* = ${ws.toFixed(2)}`;
+  sl.oninput = () => { stopPlay(); st.w = +sl.value; draw(); };
+  function tweenW(to, ms, done) { const from = st.w, t0 = performance.now();
+    (function f(now) { const t = Math.min(1, (now - t0) / ms), e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      st.w = from + (to - from) * e; sl.value = st.w; draw(); if (t < 1) anim = requestAnimationFrame(f); else if (done) done(); })(t0); }
+  let anim = null, timers = [];
+  function stopPlay() { if (anim) cancelAnimationFrame(anim); anim = null; timers.forEach(clearTimeout); timers = []; }
+  document.getElementById('snap').onclick = () => { stopPlay(); tweenW(ws, 700); };
+  document.querySelectorAll('.steps .nav-link').forEach(b => b.onclick = () => { setStep(+b.dataset.step); if (+b.dataset.step === 3) { st.w = 1; tweenW(ws, 1800); } });
+  function play() {
+    stopPlay(); setStep(0, true);
+    const seq = [[2200, () => { setStep(1, true); setN(NS[NS.length - 1]); }]];
+    NS.slice(0, -1).reverse().forEach(n => seq.push([700, () => setN(n)]));
+    seq.push([1800, () => setStep(2, true)], [2600, () => { setStep(3, true); st.w = 1; tweenW(ws, 2200); }]);
+    let t = 0; seq.forEach(([dt, f]) => { t += dt; timers.push(setTimeout(f, t)); });
+  }
+  document.getElementById('play').onclick = play;
+  const q = new URLSearchParams(location.search), s0 = Math.min(3, Math.max(0, (+q.get('step') || 1) - 1));
+  layout(); setN(D.weak); setStep(s0); if (s0 === 3) { st.w = ws; sl.value = ws; draw(); }
+  addEventListener('resize', () => { layout(); draw(); });
+  // play once when the figure first scrolls into view
+  const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { play(); io.disconnect(); } }, {threshold: 0.5});
+  if (!q.has('step')) io.observe(cv);
+})();
+</script>
+</body>
+</html>
