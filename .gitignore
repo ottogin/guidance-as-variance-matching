@@ -1,0 +1,41 @@
+__pycache__/
+*.pyc
+
+# local copies of pre-release outputs (not part of the release; runs/ holds the pipeline's)
+results/
+
+# HF access token, pasted in by hand -- never commit or sync this
+/token
+
+# paper/ is the LaTeX source, kept in its own repository; never vendor it here
+/paper/
+
+# OS / tooling junk
+.DS_Store
+.pytest_cache/
+.claude/
+*.egg-info/
+.venv/
+/-.png
+
+# pipeline outputs of the clean code
+runs/
+
+# local secrets (arena/.gitignore already covers arena's own)
+.env
+.env.*
+.dev.vars
+
+# datasets fetched by vmg.data (VMG_DATA default)
+/data/
+
+# per-cluster settings for reproduce/slurm/job.sbatch
+reproduce/slurm/site.env
+slurm-*.out
+
+# offline copy of the user study for reviewers (python3 user_study/arena/build.py --offline user_study/offline; ~70 MB)
+/user_study/offline/
+
+# the CVPR supplementary zip (python3 supplementary/build.py --appendix .../supp.pdf)
+/supplementary.zip
+/supplementary.zip.part

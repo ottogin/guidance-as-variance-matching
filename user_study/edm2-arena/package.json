@@ -1,0 +1,13 @@
+{
+  "name": "edm2-arena",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler pages dev",
+    "migrate:local": "wrangler d1 migrations apply edm2-arena --local",
+    "migrate:remote": "wrangler d1 migrations apply edm2-arena --remote",
+    "deploy": "wrangler pages deploy public --project-name edm2-arena"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.2"
+  }
+}

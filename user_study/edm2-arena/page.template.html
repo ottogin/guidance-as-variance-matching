@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImageNet-512 Image Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap">
+<style>
+/* Layout: one centred column; class name above a two-up image pair, three verdict keys below; a leaderboard tab. */
+:root {
+  --bg: #f3f4f6; --surface: #ffffff; --fg: #15181d; --muted: #5b6270; --line: #d8dbe1;
+  --accent: #0e6f68; --accent-fg: #ffffff; --accent-soft: #d7efec; --warn: #9a5b00;
+  --win: #1f9d55; --loss: #d1343a;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111317; --surface: #1a1d23; --fg: #e7e9ed; --muted: #9aa1ad; --line: #2c3038;
+  --accent: #35c2b5; --accent-fg: #06201e; --accent-soft: #163a37; --warn: #e0a24a;
+  --win: #34c472; --loss: #f0575c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111317; --surface: #1a1d23; --fg: #e7e9ed; --muted: #9aa1ad; --line: #2c3038;
+  --accent: #35c2b5; --accent-fg: #06201e; --accent-soft: #163a37; --warn: #e0a24a;
+  --win: #34c472; --loss: #f0575c; color-scheme: dark }
+html, body { background: var(--bg); color: var(--fg); }
+[hidden] { display: none !important; }
+.wrap > *, .pair > *, .verdict > * { min-width: 0; }
+body { font: 15px/1.5 var(--f-body); }
+.wrap { max-width: 1040px; margin: 0 auto; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px; }
+h1 { font: 600 1.6rem/1.15 var(--f-display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+h2 { font: 600 1.15rem/1.2 var(--f-display); margin: 0; text-wrap: balance; }
+.tabs { display: flex; gap: 4px; }
+.tab { font: 500 .9rem var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+  padding: 6px 14px; border-radius: 6px; cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.tab:disabled { opacity: .45; cursor: not-allowed; }
+.status { font: .82rem var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 12px; }
+.panel p { margin: 0; max-width: 68ch; }
+.muted { color: var(--muted); }
+.caption { font-size: 1.12rem; line-height: 1.4; margin: 0; text-wrap: balance; min-height: 2.8em; }
+.caption::before { content: "ImageNet class"; display: block; font: 500 .7rem var(--f-mono); letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pick { position: relative; padding: 0; border: 2px solid transparent; border-radius: 8px; background: var(--line);
+  cursor: pointer; aspect-ratio: 1; max-width: 100%; overflow: hidden; }
+.pick:hover:not(:disabled), .pick:focus-visible { border-color: var(--accent); outline: none; }
+.pick:disabled { cursor: progress; }
+.pick .img { position: absolute; inset: 0; background-repeat: no-repeat; }   /* background-size: NS x 100%, set in place() */
+.pick .side { position: absolute; left: 8px; top: 8px; font: 500 .75rem var(--f-mono); background: var(--bg);
+  color: var(--fg); padding: 2px 7px; border-radius: 4px; opacity: .85; }
+.verdict { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; }
+.btn { font: 500 .95rem var(--f-body); padding: 11px 14px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--fg); cursor: pointer; display: inline-flex; align-items: center;
+  justify-content: center; gap: 8px; }
+.btn:hover:not(:disabled), .btn:focus-visible { border-color: var(--accent); outline: none; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn:disabled { opacity: .5; cursor: progress; }
+kbd { font: .75rem var(--f-mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px;
+  padding: 0 5px; color: var(--muted); }
+.who { display: flex; flex-direction: column; gap: 4px; max-width: 340px; }
+.who label { font: 500 .8rem var(--f-body); color: var(--muted); }
+.who input { font: .95rem var(--f-body); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--fg); min-width: 0; }
+.who input:focus-visible { outline: none; border-color: var(--accent); }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; justify-content: space-between; }
+.meter { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; flex: 1 1 160px; max-width: 280px; }
+.meter > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .25s; }
+.link { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; font-variant-numeric: tabular-nums; width: 100%; }
+th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child, th.l, td.l { text-align: left; }
+th { font: 500 .72rem var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+td.num { font-family: var(--f-mono); font-size: .88rem; }
+.ours td.l { font-weight: 600; }
+tr.ours td { background: var(--accent-soft); }
+.grp { display: flex; flex-direction: column; gap: 10px; padding-top: 6px; }
+.grp + .grp { border-top: 1px solid var(--line); padding-top: 18px; }
+.verdict-line { margin: 0; font-size: .95rem; }
+.verdict-line.win b { color: var(--accent); }
+tr.split td { border-top: 2px solid var(--fg); }
+.chip { display: inline-block; font: 500 .7rem var(--f-mono); padding: 1px 6px; border-radius: 4px;
+  background: var(--accent-soft); color: var(--fg); margin-left: 6px; vertical-align: 1px; }
+svg text { fill: var(--muted); font: 11px var(--f-mono); }
+svg .bar { fill: var(--muted); }
+svg .bar.ours { fill: var(--accent); }
+svg .ci.ours { stroke: var(--accent); stroke-width: 2.5; }
+svg .lbl.ours { font-weight: 600; }
+svg .ci { stroke: var(--fg); stroke-width: 1.5; }
+svg .grid { stroke: var(--line); stroke-width: 1; }
+svg .lbl { fill: var(--fg); font: 12px var(--f-body); }
+#boardBody { display: flex; flex-direction: column; gap: 14px; }
+.mat td { text-align: center; font-family: var(--f-mono); font-size: .82rem; }
+.note { font-size: .85rem; color: var(--muted); }
+.warn { color: var(--warn); }
+@media (max-width: 560px) {
+  .pair { gap: 8px; }
+  .verdict { grid-template-columns: 1fr 1fr; }
+  .verdict .tie { grid-column: 1 / -1; order: 3; }
+  kbd, .keys { display: none; }
+  h1 { font-size: 1.35rem; }
+}
+@media (prefers-reduced-motion: reduce) { .meter > i { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>ImageNet-512 Image Arena</h1>
+    <nav class="tabs" role="tablist">
+      <button class="tab" id="tabRate" role="tab" aria-selected="true">Rate</button>
+      <button class="tab" id="tabBoard" role="tab" aria-selected="false">Leaderboard</button>
+    </nav>
+  </header>
+
+  <section id="viewIntro" class="panel">
+    <h2>Which of two images is better?</h2>
+    <p>Each round shows one ImageNet class and two images generated for it by the same class-conditional diffusion
+      model (EDM2). The two images come from two different generation settings, in random order, and both start from
+      the same random noise. Pick the one you prefer overall: image quality, how natural it looks, and how well it
+      shows the class. If you can't choose, call it a tie.</p>
+    <p class="muted"><span class="keys">Keys: <kbd>←</kbd> left, <kbd>→</kbd> right, <kbd>↓</kbd> tie, <kbd>S</kbd> skip. </span>There is no
+      fixed length: rate as many as you like and stop at any time.<span id="openLine"> Every vote is saved as you go.
+      The leaderboard opens after <span id="unlockN"></span> votes.</span></p>
+    <p class="warn" id="closedNote" hidden><b>The study closed on <span class="closedOn"></span>.</b> You can still rate pairs: your
+      votes stay in this browser and make up your own leaderboard (<i>Just me</i>). <i>Everyone</i> shows the votes collected
+      while the study was open; votes cast now are not added to it.</p>
+    <div class="who" id="who">
+      <label for="raterName">Your name (optional, seen only by the study organiser). Use the same name on every device and your votes count as one person.</label>
+      <input id="raterName" maxlength="60" autocomplete="name" placeholder="e.g. Jane D.">
+    </div>
+    <div class="row">
+      <span class="status" id="introStatus">Connecting…</span>
+      <button class="btn primary" id="startBtn">Start rating</button>
+    </div>
+  </section>
+
+  <section id="viewRate" class="panel" hidden>
+    <p class="caption" id="caption"></p>
+    <div class="pair">
+      <button class="pick" id="pickL" aria-label="Left image is better"><div class="img" id="imgL"></div><span class="side">A</span></button>
+      <button class="pick" id="pickR" aria-label="Right image is better"><div class="img" id="imgR"></div><span class="side">B</span></button>
+    </div>
+    <div class="verdict">
+      <button class="btn" id="btnL"><kbd>←</kbd> A is better</button>
+      <button class="btn tie" id="btnT">Tie <kbd>↓</kbd></button>
+      <button class="btn" id="btnR">B is better <kbd>→</kbd></button>
+    </div>
+    <div class="row">
+      <span class="status" id="count"></span>
+      <div class="meter" title="Progress to the leaderboard"><i id="meter"></i></div>
+      <button class="link" id="btnS">Skip this pair</button>
+    </div>
+    <span class="status" id="saved"></span>
+  </section>
+
+  <section id="viewBoard" class="panel" hidden>
+    <div class="row"><h2>Leaderboard</h2><div class="tabs" role="tablist" aria-label="Whose votes"><button class="tab" id="scAll" role="tab" aria-selected="true">Everyone</button><button class="tab" id="scMe" role="tab" aria-selected="false">Just me</button></div><span class="status" id="boardStatus"></span></div>
+    <div id="boardBody"></div>
+  </section>
+</div>
+
+<script>
+"use strict";
+const PROMPTS = /*PROMPTS*/[];     // [{i: seed, c: ImageNet class, t: class name}], in sprite order: sprite s/NNN.webp is PROMPTS[NNN]
+const KEY = /*KEY*/"";             // per row, NS arm codes in sprite-slot order, XOR'd with SALT, base64
+const ARMS = /*ARMS*/{};           // code -> {name, short, w, ours}
+const GROUPS = /*GROUPS*/[];       // leaderboard sections: [{title, codes}], every arm in exactly one
+const PAIRS = /*PAIRS*/[];         // the arm pairs raters are shown ("ab", arms in CODES order)
+const SALT = "og-edm2";
+const HIDE = /*HIDE*/[];          // row positions taken down: never shown again, but their votes still count
+const UNLOCK = 30;
+const CODES = Object.keys(ARMS);
+const NS = CODES.length;          // images per sprite = number of arms
+// Set LOCKED (and CLOSED_ON, e.g. "1 December 2026") to close the study; functions/_shared.js has the same flag, and the
+// server then refuses votes. Votes are kept in this browser only and make up "Just me"; "Everyone" is the stored votes
+// (this browser's up to `sent`), and the leaderboard is open from the first visit.
+const LOCKED = false;
+const CLOSED_ON = "";
+const N = PROMPTS.length;
+const $ = id => document.getElementById(id);
+
+const SLOTS = (() => {
+  const raw = atob(KEY); let s = "";
+  for (let i = 0; i < raw.length; i++) s += String.fromCharCode(raw.charCodeAt(i) ^ SALT.charCodeAt(i % SALT.length));
+  const out = []; for (let i = 0; i < N; i++) out.push(s.slice(i * NS, i * NS + NS));
+  return out;
+})();
+const sprite = p => `s/${String(p).padStart(3, "0")}.webp`;
+
+// ---------- state ----------
+let uid = null, sent = 0, name = "";   // sent = how many of this browser's votes the server has acknowledged
+// owner link: ?key=<owner key>; kept in this browser so the owner stays recognised. The server decides (board.owner).
+const ownerKey = (() => { const k = new URLSearchParams(location.search).get("key");
+  try { if (k) localStorage.setItem("edm2-owner", k); return k || localStorage.getItem("edm2-owner") || ""; } catch (e) { return k || ""; } })();
+let isOwner = false, meExcluded = false, savingEx = "";
+let board = [], boardAt = 0;   // server aggregates: [{me, c: [[arm, opp, wins, ties, losses], ...]}], one entry per rater
+let votes = [];           // "p.LRr.rt": prompt pos, left code, right code, result l|r|t, response deciseconds
+let skips = 0;
+let scope = "all";       // leaderboard: "all" = every rater's votes, "me" = this rater's only
+let cur = null, nextT = null, shownAt = 0, busy = true;
+const bad = new Set(HIDE);      // rows whose sprite failed to load: never drawn again
+let writing = Promise.resolve(), dirty = false;
+
+function lsLoad() { try { return JSON.parse(localStorage.getItem("edm2-arena") || "null"); } catch (e) { return null; } }
+function lsSave() { try { localStorage.setItem("edm2-arena", JSON.stringify({ uid, name, votes, skips, sent })); } catch (e) {} }
+
+// ---------- choosing the next pair: least-used pair of arms, then least-used row, for this rater ----------
+function rnd(n) { return Math.floor(Math.random() * n); }
+// `extra` counts the trial on screen as already voted (its pair and row are known before the verdict),
+// so the next trial can be drawn and its sprite preloaded while the rater looks
+function chooseTrial(extra) {
+  const pairUse = {}, capUse = new Array(N).fill(0);
+  for (const k of PAIRS) pairUse[k] = 0;
+  for (const v of extra ? votes.concat([extra]) : votes) {
+    const [p, lr] = v.split(".");
+    capUse[+p]++;
+    const k = [lr[0], lr[1]].sort((x, y) => CODES.indexOf(x) - CODES.indexOf(y)).join("");
+    if (k in pairUse) pairUse[k]++;
+  }
+  const pmin = Math.min(...Object.values(pairUse));
+  const pairs = Object.keys(pairUse).filter(k => pairUse[k] === pmin);
+  const pair = pairs[rnd(pairs.length)];
+  let cmin = Infinity; capUse.forEach((u, i) => { if (!bad.has(i) && u < cmin) cmin = u; });
+  const caps = []; capUse.forEach((u, i) => { if (u === cmin && !bad.has(i) && i !== (cur && cur.p)) caps.push(i); });
+  const ok = []; for (let i = 0; i < N; i++) if (!bad.has(i)) ok.push(i);
+  const p = caps.length ? caps[rnd(caps.length)] : ok[rnd(ok.length)];
+  const flip = Math.random() < 0.5;
+  const L = flip ? pair[1] : pair[0], R = flip ? pair[0] : pair[1];
+  return { p, L, R, sL: SLOTS[p].indexOf(L), sR: SLOTS[p].indexOf(R), ready: load(sprite(p)) };
+}
+const cache = new Map();
+function load(url) {
+  if (!cache.has(url)) cache.set(url, new Promise(res => { const im = new Image(); im.onload = () => res(true); im.onerror = () => res(false); im.src = url; }));
+  if (cache.size > 12) cache.delete(cache.keys().next().value);
+  return cache.get(url);
+}
+function place(el, p, slot) {
+  el.style.backgroundImage = `url("${sprite(p)}")`;
+  el.style.backgroundSize = `${NS * 100}% 100%`;
+  el.style.backgroundPosition = `${(slot * 100) / (NS - 1)}% 0`;
+}
+
+async function show() {
+  busy = true; setBusy(true);
+  cur = nextT || chooseTrial(); nextT = null;
+  $("caption").textContent = PROMPTS[cur.p].t;
+  $("imgL").style.backgroundImage = $("imgR").style.backgroundImage = "none";
+  const ok = await cur.ready;
+  if (!ok) {
+    bad.add(cur.p); cache.delete(sprite(cur.p)); cur = null; nextT = null;
+    if (bad.size >= N) { $("saved").textContent = "Images could not load. Check your connection and reload the page."; return; }
+    return show();
+  }
+  place($("imgL"), cur.p, cur.sL); place($("imgR"), cur.p, cur.sR);
+  shownAt = performance.now();
+  nextT = chooseTrial(`${cur.p}.${cur.L}${cur.R}t.0`);
+  setTimeout(() => { busy = false; setBusy(false); }, 350);   // no instant double-taps
+}
+function setBusy(b) { ["pickL", "pickR", "btnL", "btnR", "btnT"].forEach(id => $(id).disabled = b); }
+
+function vote(r) {
+  if (busy || !cur) return;
+  const rt = Math.min(9999, Math.round((performance.now() - shownAt) / 100));
+  votes.push(`${cur.p}.${cur.L}${cur.R}${r}.${rt}`);
+  lsSave(); persist(); renderCount();
+  const el = r === "l" ? $("pickL") : r === "r" ? $("pickR") : $("btnT");
+  el.animate?.([{ transform: "scale(0.985)" }, { transform: "none" }], { duration: 140 });
+  show();
+}
+function skip() { if (busy) return; skips++; lsSave(); show(); }
+
+function persist() {
+  if (LOCKED) { $("saved").textContent = "Kept in this browser only: the study is closed."; return; }
+  if (dirty) return;          // a request is queued; it will carry this vote too
+  dirty = true;
+  writing = writing.then(async () => {
+    dirty = false;
+    const from = sent, batch = votes.slice(from, from + 200);
+    try {
+      const r = await fetch("api/votes", { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ rater: uid, skips, from, votes: batch, name }) });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      sent = Math.max(sent, from + batch.length); lsSave();
+      $("saved").textContent = `Saved · ${votes.length} votes`;
+      if (sent < votes.length) persist();
+    } catch (e) {
+      $("saved").textContent = "Could not reach the server. Your votes are kept in this browser and go with the next one.";
+    }
+  });
+}
+async function loadBoard(force) {
+  if (!force && performance.now() - boardAt < 15000) return;
+  try {
+    const r = await fetch(`api/board?rater=${encodeURIComponent(uid)}` + (ownerKey ? `&key=${encodeURIComponent(ownerKey)}` : ""));
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    board = d.raters || []; boardAt = performance.now();
+    isOwner = !!d.owner; meExcluded = !!d.meExcluded;
+    renderCount();
+    if (view === "board") renderBoard();
+  } catch (e) { $("boardStatus").textContent = "Could not load other raters' votes."; }
+}
+
+function elsewhere() { let n = 0; board.forEach(rt => { if (rt.me) for (const c of rt.c || []) n += c[2] + c[3] + c[4]; }); return n; }   // my votes from other browsers, by name
+function unlocked() { return LOCKED || isOwner || votes.length + elsewhere() >= UNLOCK; }
+function renderCount() {
+  const n = votes.length + elsewhere();
+  $("count").textContent = `${n} vote${n === 1 ? "" : "s"}` + (unlocked() ? " · leaderboard open" : ` · leaderboard in ${UNLOCK - n}`);
+  $("meter").style.width = `${Math.min(100, (100 * n) / UNLOCK)}%`;
+  $("tabBoard").disabled = !unlocked();
+  $("tabBoard").title = unlocked() ? "" : `Opens after ${UNLOCK} votes`;
+}
+
+// ---------- rating: Bradley-Terry on the Elo scale, ties count half to each side ----------
+function parseAll() {
+  const out = [];
+  const push = (L, R, r, u) => out.push({ L: CODES.indexOf(L), R: CODES.indexOf(R), r, u });
+  board.forEach((rt, k) => {
+    if (scope === "me" && !rt.me) return;
+    if (scope === "all" && rt.excluded) return;   // owner view: people the owner left out
+    const u = rt.me ? "me" : k;
+    for (const [a, b, w, t, l] of rt.c || []) {
+      if (!(a in ARMS) || !(b in ARMS) || a === b) continue;
+      for (let n = 0; n < w; n++) push(a, b, "l", u);
+      for (let n = 0; n < t; n++) push(a, b, "t", u);
+      for (let n = 0; n < l; n++) push(a, b, "r", u);
+    }
+  });
+  if (scope === "all" && meExcluded) return out;   // this browser's person is left out of the board
+  const mine = scope !== "all" ? votes : LOCKED ? votes.slice(0, sent) : votes;   // locked: votes cast since are not in Everyone
+  for (const v of mine) {
+    const m = /^(\d+)\.([a-z])([a-z])([lrt])\.(\d+)$/.exec(v);
+    if (m && m[2] in ARMS && m[3] in ARMS && m[2] !== m[3]) push(m[2], m[3], m[4], "me");
+  }
+  return out;
+}
+function counts(vs, idx) {
+  const K = CODES.length, W = Array.from({ length: K }, () => new Float64Array(K));
+  const n = idx ? idx.length : vs.length;
+  for (let q = 0; q < n; q++) {
+    const v = vs[idx ? idx[q] : q];
+    if (v.r === "l") W[v.L][v.R] += 1; else if (v.r === "r") W[v.R][v.L] += 1;
+    else { W[v.L][v.R] += .5; W[v.R][v.L] += .5; }
+  }
+  return W;
+}
+function bt(W) {
+  const K = W.length, p = new Float64Array(K).fill(1);
+  const w = (i, j) => W[i][j] + 0.5;             // one prior tie per pair keeps every rating finite
+  for (let it = 0; it < 400; it++) {
+    let delta = 0;
+    for (let i = 0; i < K; i++) {
+      let wins = 0, den = 0;
+      for (let j = 0; j < K; j++) if (j !== i) { wins += w(i, j); den += (w(i, j) + w(j, i)) / (p[i] + p[j]); }
+      const np = wins / den; delta = Math.max(delta, Math.abs(Math.log(np / p[i]))); p[i] = np;
+    }
+    let g = 0; for (let i = 0; i < K; i++) g += Math.log(p[i]); g /= K;
+    for (let i = 0; i < K; i++) p[i] /= Math.exp(g);
+    if (delta < 1e-9) break;
+  }
+  return Array.from(p, x => 1000 + 400 * Math.log10(x));
+}
+function rating(vs) {
+  const est = bt(counts(vs));
+  const B = 300, boots = CODES.map(() => []);
+  let seed = 12345;                                  // mulberry32: fixed seed, so the board does not jitter
+  const r = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  // resample raters, then votes within them, so one prolific rater cannot narrow the interval alone
+  const byU = new Map(); vs.forEach((v, i) => { if (!byU.has(v.u)) byU.set(v.u, []); byU.get(v.u).push(i); });
+  const groups = [...byU.values()];
+  for (let b = 0; b < B; b++) {
+    const idx = [];
+    for (let g = 0; g < groups.length; g++) {
+      const G = groups[Math.floor(r() * groups.length)];
+      for (let k = 0; k < G.length; k++) idx.push(G[Math.floor(r() * G.length)]);
+    }
+    bt(counts(vs, idx)).forEach((e, i) => boots[i].push(e));
+  }
+  const q = (a, t) => { const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.max(0, Math.round(t * (s.length - 1))))]; };
+  return CODES.map((c, i) => ({ c, i, elo: est[i], lo: q(boots[i], .025), hi: q(boots[i], .975) }));
+}
+
+function renderBoard() {
+  const body = $("boardBody");
+  if (!unlocked()) { body.innerHTML = `<p class="muted">Opens after ${UNLOCK} votes.</p>`; return; }
+  const vs = parseAll();
+  const raters = new Set(vs.map(v => v.u)).size;
+  $("boardStatus").textContent = scope === "me" ? `your ${vs.length} votes` : `${vs.length} votes · ${raters} rater${raters === 1 ? "" : "s"}` +
+    (LOCKED ? ` · closed ${CLOSED_ON}` : "");
+  if (!vs.length) { body.innerHTML = `<p class="muted">No votes yet.</p>`; return; }
+  const R = rating(vs).sort((a, b) => b.elo - a.elo);
+  const W = counts(vs);
+  const games = CODES.map((_, i) => { let g = 0, s = 0, t = 0; vs.forEach(v => { if (v.L === i || v.R === i) { g++; if (v.r === "t") t++; else if ((v.r === "l") === (v.L === i)) s++; } }); return { g, s, t }; });
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // one section per GROUPS entry (build.py); one fit over every vote, so the Elo scale is shared
+  const byC = Object.fromEntries(R.map(x => [x.c, x]));
+  const lo = Math.min(...R.map(x => x.lo)), hi = Math.max(...R.map(x => x.hi));
+  const pad = Math.max(10, (hi - lo) * .08), x0 = Math.floor((lo - pad) / 25) * 25, x1 = Math.ceil((hi + pad) / 25) * 25;
+  const step = (x1 - x0) > 300 ? 100 : (x1 - x0) > 120 ? 50 : 25;
+  const section = grp => {
+    const rows = [...grp.codes].map(c => byC[c]).filter(Boolean).sort((p, q) => q.elo - p.elo);
+    if (!rows.length) return "";
+    const top = rows[0], next = rows[1];
+    let out = `<section class="grp"><h2>${esc(grp.title)}</h2>`;
+    if (next) {
+      const p = 1 / (1 + Math.pow(10, -(top.elo - next.elo) / 400));    // Elo gap -> preference rate
+      out += `<p class="verdict-line${ARMS[top.c].ours ? " win" : ""}"><b>${esc(ARMS[top.c].short)}</b> ranks first, ${Math.round(top.elo - next.elo)} Elo ahead of ${esc(ARMS[next.c].short)} ` +
+        `(preferred about ${Math.round(100 * p)}% of the time).</p>`;
+    }
+    // dot-and-whisker chart
+    const Wd = 640, Lm = 150, Rm = 20, rowH = 28, t0 = 8, Hh = t0 + rows.length * rowH + 26;
+    const sx = v => Lm + ((v - x0) / (x1 - x0)) * (Wd - Lm - Rm);
+    out += `<div class="tablewrap"><svg viewBox="0 0 ${Wd} ${Hh}" width="100%" style="max-width:${Wd}px" role="img" aria-label="${esc(grp.title)}: Elo with 95% intervals">`;
+    for (let g = Math.ceil(x0 / step) * step; g <= x1; g += step)
+      out += `<line class="grid" x1="${sx(g)}" x2="${sx(g)}" y1="${t0}" y2="${Hh - 22}"/><text x="${sx(g)}" y="${Hh - 6}" text-anchor="middle">${g}</text>`;
+    rows.forEach((x, k) => {
+      const y = t0 + k * rowH + rowH / 2, ours = ARMS[x.c].ours ? " ours" : "";
+      out += `<text class="lbl${ours}" x="${Lm - 10}" y="${y + 4}" text-anchor="end">${esc(ARMS[x.c].short)}</text>`;
+      out += `<line class="ci${ours}" x1="${sx(x.lo)}" x2="${sx(x.hi)}" y1="${y}" y2="${y}"/>`;
+      out += `<circle class="bar${ours}" cx="${sx(x.elo)}" cy="${y}" r="${ours ? 6.5 : 5}"/>`;
+    });
+    out += `</svg></div>`;
+    // table
+    out += `<div class="tablewrap"><table><thead><tr><th>#</th><th class="l">Setting</th><th>Elo</th><th>95% interval</th><th>Won</th><th>Tied</th><th>Lost</th><th>Games</th></tr></thead><tbody>`;
+    rows.forEach((x, k) => {
+      const a = ARMS[x.c], g = games[x.i];
+      out += `<tr class="${a.ours ? "ours" : ""}"><td class="num">${k + 1}</td><td class="l">${esc(a.name)}${a.ours ? '<span class="chip">ours</span>' : ""}</td>` +
+        `<td class="num">${x.elo.toFixed(0)}</td><td class="num">${x.lo.toFixed(0)} – ${x.hi.toFixed(0)}</td>` +
+        `<td class="num">${g.s}</td><td class="num">${g.t}</td><td class="num">${g.g - g.s - g.t}</td><td class="num">${g.g}</td></tr>`;
+    });
+    return out + `</tbody></table></div></section>`;
+  };
+  const sections = GROUPS.map(section).join("");
+
+  // head-to-head: row's win share against column (ties half), with games; a rule above the first row of each later group
+  const ranked = GROUPS.map(g => [...g.codes].map(c => byC[c]).filter(Boolean).sort((p, q) => q.elo - p.elo).map(x => x.i));
+  const order = ranked.flat();
+  const splits = new Set(ranked.slice(1).filter(g => g.length).map(g => g[0]));
+  let m = `<div class="tablewrap"><table class="mat"><thead><tr><th class="l">Row beats column</th>${order.map(j => `<th>${esc(ARMS[CODES[j]].short)}</th>`).join("")}</tr></thead><tbody>`;
+  order.forEach(i => {
+    m += `<tr class="${splits.has(i) ? "split" : ""}"><td class="l">${esc(ARMS[CODES[i]].short)}</td>`;
+    order.forEach(j => {
+      if (i === j) { m += `<td class="muted">·</td>`; return; }
+      const n = W[i][j] + W[j][i];
+      if (!n) { m += `<td class="muted">–</td>`; return; }
+      // green when the row wins more often, red when it loses more; deeper the further from 50%, saturating at 80/20
+      const share = W[i][j] / n, a = Math.round(Math.min(1, Math.abs(share - 0.5) / 0.3) * 75);   // full color at 80/20
+      const bg = a ? `background: color-mix(in srgb, var(${share > 0.5 ? "--win" : "--loss"}) ${a}%, transparent)` : "";
+      m += `<td style="${bg}" title="${n} games">${Math.round(100 * share)}%<span class="muted"> /${n}</span></td>`;
+    });
+    m += `</tr>`;
+  });
+  m += `</tbody></table></div>`;
+
+  let own = "";
+  if (isOwner) {   // rater list with names: tick who counts; saved for everyone
+    const ppl = board.filter(rt => rt.person).sort((a, b) => b.votes - a.votes);
+    own = `<section class="grp"><h2>Raters</h2><p class="note">Only you see this list. People are shown under random names; AI raters keep their model name. Untick a rater to leave their votes out of the leaderboard; ` +
+      `the choice is saved, and everyone else sees the board without them. ${esc(savingEx)}</p>` +
+      `<div class="tablewrap"><table><thead><tr><th class="l">Counted</th><th class="l">Rater</th><th>Votes</th><th>Devices</th><th class="l">Source</th></tr></thead><tbody>` +
+      ppl.map(rt => `<tr><td class="l"><input type="checkbox" data-person="${esc(rt.person)}" ${rt.excluded ? "" : "checked"} aria-label="Count ${esc(rt.name)}"></td>` +
+        `<td class="l">${esc(rt.name)}${rt.me ? '<span class="chip">you</span>' : ""}</td><td class="num">${rt.votes}</td><td class="num">${rt.browsers}</td>` +
+        `<td class="l muted">${esc(rt.source)}</td></tr>`).join("") + `</tbody></table></div></section>`;
+  }
+  const ais = board.filter(rt => rt.agent && !rt.excluded && scope === "all");
+  const aiList = ais.map(rt => `${esc(rt.agent)} (${(rt.c || []).reduce((s, c) => s + c[2] + c[3] + c[4], 0)} votes)`).join(", ");
+  const aiLine = LOCKED ? (ais.length ? `<p class="note">AI raters counted here: ${aiList}.</p>` : "")
+    : ais.length ? `<p class="note">AI raters counted here: ${aiList}. Other AI agents can join through the <a href="agents">rating API</a>.</p>`
+    : `<p class="note">AI agents can rate too, through the <a href="agents">rating API</a>.</p>`;
+  const later = votes.length - sent;   // this browser's votes that Everyone leaves out once the study is closed
+  const yours = later > 0 ? `, so your ${later} vote${later === 1 ? "" : "s"} since ${later === 1 ? "is" : "are"} under Just me only` : "";
+  const lockLine = scope === "all" && LOCKED ? `<p class="note">The study closed on ${CLOSED_ON}: Everyone counts only the votes stored by then${yours}.</p>` : "";
+  body.innerHTML = lockLine + (own && scope === "all" ? own : "") + sections + aiLine +
+    `<p class="note">Elo is a Bradley–Terry fit to every vote, with ties counted as half a win for each side, on the chess scale: ` +
+    `a 100-point gap means the higher setting is preferred about 64% of the time. One fit covers every setting, so all ratings are on the same scale; they average 1000. Intervals come from a bootstrap that resamples raters, then votes within each rater.</p>` +
+    `<h2>Head to head</h2><p class="note">How often the row setting beat the column setting (ties count half), with the number of games. Green: the row wins more often; red: it loses more often; the deeper the color, the more one-sided.</p>` + m;
+}
+
+// ---------- views ----------
+let view = "intro";
+function go(v) {
+  view = v;
+  $("viewIntro").hidden = v !== "intro"; $("viewRate").hidden = v !== "rate"; $("viewBoard").hidden = v !== "board";
+  $("tabRate").setAttribute("aria-selected", String(v !== "board"));
+  $("tabBoard").setAttribute("aria-selected", String(v === "board"));
+  if (v === "board") { renderBoard(); loadBoard(true); }
+  if (v === "rate" && !cur) show();
+}
+$("tabRate").onclick = () => go(cur ? "rate" : "intro");
+$("tabBoard").onclick = () => { if (unlocked()) go("board"); };
+$("startBtn").onclick = () => go("rate");
+$("boardBody").addEventListener("change", async e => {
+  const box = e.target.closest && e.target.closest("input[data-person]");
+  if (!box || !isOwner) return;
+  const rt = board.find(x => x.person === box.dataset.person); if (!rt) return;
+  rt.excluded = !box.checked; if (rt.me) meExcluded = rt.excluded;
+  const excluded = board.filter(x => x.person && x.excluded).map(x => x.person);
+  savingEx = "Saving…"; renderBoard();
+  try {
+    const r = await fetch("api/settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ key: ownerKey, excluded }) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    savingEx = excluded.length ? `Saved: ${excluded.length} left out.` : "Saved: everyone counted.";
+  } catch (err) { savingEx = "Could not save; reload and try again."; }
+  renderBoard();
+});
+function setScope(s) { scope = s; $("scAll").setAttribute("aria-selected", String(s === "all")); $("scMe").setAttribute("aria-selected", String(s === "me")); renderBoard(); }
+$("scAll").onclick = () => setScope("all");
+$("scMe").onclick = () => setScope("me");
+$("pickL").onclick = $("btnL").onclick = () => vote("l");
+$("pickR").onclick = $("btnR").onclick = () => vote("r");
+$("btnT").onclick = () => vote("t");
+$("btnS").onclick = skip;
+document.addEventListener("keydown", e => {
+  if (view !== "rate" || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key;
+  if (k === "ArrowLeft") { e.preventDefault(); vote("l"); }
+  else if (k === "ArrowRight") { e.preventDefault(); vote("r"); }
+  else if (k === "ArrowDown" || k === " ") { e.preventDefault(); vote("t"); }
+  else if (k === "s" || k === "S") { e.preventDefault(); skip(); }
+});
+
+(function boot() {
+  $("unlockN").textContent = UNLOCK;
+  if (LOCKED) {   // closed: no name box (nothing is sent), no progress meter (the board is open)
+    $("openLine").hidden = true; $("closedNote").hidden = false; $("who").style.display = "none";
+    $("meter").parentElement.style.display = "none";
+    document.querySelectorAll(".closedOn").forEach(el => { el.textContent = CLOSED_ON; });
+  }
+  const s = lsLoad();
+  if (s && typeof s.name === "string") name = s.name.slice(0, 60);
+  $("raterName").value = name;
+  $("raterName").addEventListener("change", e => { name = e.target.value.replace(/\s+/g, " ").trim().slice(0, 60); lsSave(); persist(); writing.then(() => loadBoard(true)); });
+  if (s && Array.isArray(s.votes)) { votes = s.votes.filter(v => typeof v === "string"); skips = s.skips || 0; sent = Math.min(s.sent || 0, votes.length); }
+  uid = (s && typeof s.uid === "string" && /^[A-Za-z0-9_-]{16,64}$/.test(s.uid)) ? s.uid
+    : (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Array.from(crypto.getRandomValues(new Uint8Array(16)), x => x.toString(16).padStart(2, "0")).join(""));
+  lsSave();
+  renderCount();
+  $("introStatus").textContent = votes.length ? `${votes.length} votes in this browser so far.` : "Ready.";
+  if (sent < votes.length) persist();
+  loadBoard(true);
+  setInterval(() => { if (view === "board" && !document.hidden) loadBoard(); }, 20000);
+})();
+</script>
+</body>
+</html>

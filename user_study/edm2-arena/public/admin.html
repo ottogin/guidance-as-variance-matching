@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ImageNet-512 Arena Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap">
+<style>
+:root {
+  --bg: #f3f4f6; --surface: #ffffff; --fg: #15181d; --muted: #5b6270; --line: #d8dbe1; --accent: #0e6f68; --accent-fg: #fff;
+  --accent-soft: #d7efec; --danger: #b42318; --danger-soft: #fde4e1;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111317; --surface: #1a1d23; --fg: #e7e9ed; --muted: #9aa1ad; --line: #2c3038; --accent: #35c2b5; --accent-fg: #06201e;
+    --accent-soft: #163a37; --danger: #f0786c; --danger-soft: #3a1d1a; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--f-body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 60px; display: flex; flex-direction: column; gap: 16px; }
+header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; }
+h1 { font: 600 1.6rem/1.15 var(--f-display); margin: 0; }
+h2 { font: 600 1.1rem/1.2 var(--f-display); margin: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.muted { color: var(--muted); }
+.status { font: .82rem var(--f-mono); color: var(--muted); }
+a { color: var(--accent); }
+input[type=password], input[type=text] { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); min-width: 0; }
+input:focus-visible { outline: none; border-color: var(--accent); }
+.btn { font: 500 .9rem var(--f-body); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; white-space: nowrap; }
+.btn:hover, .btn:focus-visible { border-color: var(--accent); outline: none; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.small { padding: 4px 8px; font-size: .8rem; }
+.btn.danger { color: var(--danger); }
+.btn.danger.armed { background: var(--danger); color: #fff; border-color: var(--danger); }
+.stats { display: flex; flex-wrap: wrap; gap: 10px; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; min-width: 120px; }
+.stat b { display: block; font: 600 1.3rem var(--f-display); }
+.stat span { font-size: .8rem; color: var(--muted); }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 8px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: middle; }
+th { font: 500 .7rem var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+td.num { text-align: right; font-family: var(--f-mono); font-size: .85rem; }
+td.mono { font-family: var(--f-mono); font-size: .8rem; color: var(--muted); }
+tr.off td { opacity: .55; }
+tr.groupstart td { border-top: 2px solid var(--line); }
+.name input { width: 150px; }
+.chip { font: 500 .7rem var(--f-mono); padding: 1px 6px; border-radius: 4px; background: var(--accent-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Arena admin</h1>
+    <div class="row"><a href="./">Leaderboard</a><a href="agents">Agent API</a><button class="btn small" id="logout" hidden>Log out</button></div>
+  </header>
+
+  <section class="panel" id="login">
+    <h2>Log in</h2>
+    <form class="row" id="loginForm">
+      <input type="password" id="pw" placeholder="Admin password" autocomplete="current-password" aria-label="Admin password" required>
+      <button class="btn primary" type="submit">Log in</button>
+      <span class="status" id="loginStatus"></span>
+    </form>
+  </section>
+
+  <section class="panel" id="main" hidden>
+    <div class="stats" id="stats"></div>
+    <div class="row">
+      <button class="btn" id="refresh">Refresh</button>
+      <button class="btn" id="csv">Download all votes (CSV)</button>
+      <span class="status" id="status"></span>
+    </div>
+    <p class="muted">One row per browser or agent run. Rows with the same name form one rater (a person or a model), and the leaderboard counts or leaves out that rater as a whole.
+      Untick to leave a rater out for everyone. Renaming a browser moves its votes to that name. Deleting removes the browser and its votes for good.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Counted</th><th>Name</th><th>Source</th><th style="text-align:right">Votes</th><th style="text-align:right">Ties</th>
+        <th style="text-align:right">Skips</th><th>First seen</th><th>Last seen</th><th>Id</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </section>
+</div>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let pw = "", data = null;
+try { pw = sessionStorage.getItem("edm2-arena-admin") || ""; } catch (e) {}
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const when = ms => ms ? new Date(ms).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+const api = (path, opts = {}) => fetch(path, { ...opts, headers: { ...(opts.headers || {}), "x-owner-key": pw, ...(opts.body ? { "content-type": "application/json" } : {}) } });
+
+async function load() {
+  $("status").textContent = "Loading…";
+  const r = await api("api/admin/raters");
+  if (r.status === 401) { logout("Wrong password."); return false; }
+  if (!r.ok) { $("status").textContent = `Could not load (HTTP ${r.status}).`; return false; }
+  data = await r.json();
+  $("login").hidden = true; $("main").hidden = false; $("logout").hidden = false;
+  try { sessionStorage.setItem("edm2-arena-admin", pw); localStorage.setItem("edm2-owner", pw); } catch (e) {}   // the leaderboard page then opens in owner mode
+  render(); $("status").textContent = `Updated ${when(Date.now())}.`;
+  return true;
+}
+function render() {
+  const ex = new Set(data.excluded), R = data.raters;
+  const people = new Map();
+  for (const r of R) { if (!people.has(r.person)) people.set(r.person, []); people.get(r.person).push(r); }
+  const tot = R.reduce((s, r) => s + r.votes, 0), counted = R.filter(r => !ex.has(r.person)).reduce((s, r) => s + r.votes, 0);
+  const humans = [...people.keys()].filter(p => !p.startsWith("agent:")).length, agents = people.size - humans;
+  $("stats").innerHTML = [[tot, "votes in total"], [counted, "votes counted"], [humans, "people"], [agents, "AI raters"], [[...people.keys()].filter(p => ex.has(p)).length, "raters left out"]]
+    .map(([v, l]) => `<div class="stat"><b>${v.toLocaleString()}</b><span>${l}</span></div>`).join("");
+  const groups = [...people.entries()].sort((a, b) => b[1].reduce((s, r) => s + r.votes, 0) - a[1].reduce((s, r) => s + r.votes, 0));
+  let h = "";
+  for (const [person, rs] of groups) {
+    const off = ex.has(person);
+    rs.forEach((r, k) => {
+      h += `<tr class="${off ? "off" : ""} ${k === 0 ? "groupstart" : ""}">` +
+        `<td>${k === 0 ? `<input type="checkbox" data-person="${esc(person)}" ${off ? "" : "checked"} aria-label="Count ${esc(r.name || "unnamed")}">` : ""}</td>` +
+        `<td class="name"><input type="text" value="${esc(r.name || "")}" placeholder="(no name)" data-id="${esc(r.id)}" maxlength="60" aria-label="Name">` +
+        ` <button class="btn small" data-rename="${esc(r.id)}">Save</button></td>` +
+        `<td>${r.source === "agent" || r.source === "claude" ? `<span class="chip">AI</span> ` : ""}${esc(r.source)}</td>` +
+        `<td class="num">${r.votes}</td><td class="num">${r.ties}</td><td class="num">${r.skips}</td>` +
+        `<td>${when(r.created_at)}</td><td>${when(r.last_seen)}</td><td class="mono">${esc(r.id.slice(0, 10))}…</td>` +
+        `<td><button class="btn small danger" data-del="${esc(r.id)}" data-n="${r.votes}">Delete</button></td></tr>`;
+    });
+  }
+  $("rows").innerHTML = h || `<tr><td colspan="10" class="muted">No raters yet.</td></tr>`;
+}
+async function post(body, msg) {
+  $("status").textContent = "Saving…";
+  const r = await api("api/admin/raters", { method: "POST", body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.ok) { $("status").textContent = `Failed: ${j.error || r.status}`; return; }
+  await load(); $("status").textContent = msg;
+}
+$("rows").addEventListener("change", e => {
+  const box = e.target.closest("input[data-person]"); if (!box) return;
+  post({ action: "exclude", person: box.dataset.person, excluded: !box.checked }, box.checked ? "Counted again." : "Left out of the leaderboard.");
+});
+$("rows").addEventListener("click", e => {
+  const ren = e.target.closest("[data-rename]");
+  if (ren) {
+    const inp = $("rows").querySelector(`input[data-id="${CSS.escape(ren.dataset.rename)}"]`);
+    post({ action: "rename", id: ren.dataset.rename, name: inp.value }, `Renamed to "${inp.value || "(no name)"}".`);
+    return;
+  }
+  const del = e.target.closest("[data-del]");
+  if (del) {   // two clicks: arm, then confirm within 5 s
+    if (!del.classList.contains("armed")) {
+      del.classList.add("armed"); del.textContent = `Confirm: delete ${del.dataset.n} votes`;
+      setTimeout(() => { if (del.isConnected) { del.classList.remove("armed"); del.textContent = "Delete"; } }, 5000);
+      return;
+    }
+    post({ action: "delete", id: del.dataset.del }, "Deleted.");
+  }
+});
+$("rows").addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches("input[data-id]")) $("rows").querySelector(`[data-rename="${CSS.escape(e.target.dataset.id)}"]`).click(); });
+$("refresh").onclick = load;
+$("csv").onclick = async () => {
+  $("status").textContent = "Preparing CSV…";
+  const r = await api("api/admin/export");
+  if (!r.ok) { $("status").textContent = `Export failed (HTTP ${r.status}).`; return; }
+  const url = URL.createObjectURL(await r.blob()), a = document.createElement("a");
+  a.href = url; a.download = `edm2-arena-votes-${new Date().toISOString().slice(0, 10)}.csv`; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000); $("status").textContent = "CSV downloaded.";
+};
+function logout(msg) {
+  pw = ""; try { sessionStorage.removeItem("edm2-arena-admin"); } catch (e) {}
+  $("login").hidden = false; $("main").hidden = true; $("logout").hidden = true; $("loginStatus").textContent = msg || "";
+}
+$("logout").onclick = () => logout("Logged out.");
+$("loginForm").onsubmit = async e => {
+  e.preventDefault(); pw = $("pw").value; $("loginStatus").textContent = "Checking…";
+  if (await load()) { $("pw").value = ""; $("loginStatus").textContent = ""; }
+};
+if (pw) load();
+</script>
+</body>
+</html>

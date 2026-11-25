@@ -1,0 +1,17 @@
+node_modules/
+.wrangler/
+public/s/
+public/index.html
+import.sql
+import-claude.sql
+.dev.vars
+.owner-url
+public/t/
+functions/_tiles.js
+.tile-salt
+backups/
+
+# local backups and render copies (2026-11-20)
+*.bak-*
+.wrangler.bak-*/
+public/s8/

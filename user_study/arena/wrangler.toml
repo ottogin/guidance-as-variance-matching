@@ -1,0 +1,9 @@
+name = "arena"
+pages_build_output_dir = "public"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "arena"
+database_id = "<your D1 database id: npx wrangler d1 create arena>"
+migrations_dir = "migrations"

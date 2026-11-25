@@ -1,0 +1,11 @@
+node_modules/
+.wrangler/
+public/s/
+public/t/
+public/index.html
+.dev.vars
+.owner-url
+functions/_tiles.js
+.tile-salt
+.d1-id
+.admin-password

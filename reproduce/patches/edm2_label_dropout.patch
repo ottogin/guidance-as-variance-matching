@@ -1,0 +1,47 @@
+Classifier-free label dropout for NVlabs/edm2 at 4bf8162 (train_edm2.py --label-dropout P, default 0: stock).
+Applied by reproduce/slurm/train_xs_2e27.sbatch to a copy of the pinned commit; never to $VMG_EDM2 itself.
+
+--- a/training/training_loop.py
++++ b/training/training_loop.py
+@@ -26,16 +26,22 @@
+ 
+ @persistence.persistent_class
+ class EDM2Loss:
+-    def __init__(self, P_mean=-0.4, P_std=1.0, sigma_data=0.5):
++    def __init__(self, P_mean=-0.4, P_std=1.0, sigma_data=0.5, label_dropout=0.0):
+         self.P_mean = P_mean
+         self.P_std = P_std
+         self.sigma_data = sigma_data
++        self.label_dropout = label_dropout  # zero the class label of a sample with this probability
+ 
+     def __call__(self, net, images, labels=None):
+         rnd_normal = torch.randn([images.shape[0], 1, 1, 1], device=images.device)
+         sigma = (rnd_normal * self.P_std + self.P_mean).exp()
+         weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
+         noise = torch.randn_like(images) * sigma
++        if labels is not None and self.label_dropout > 0:
++            # Drawn after sigma and the noise, so the same (seed, cur_nimg) gives the same sigma and noise as a run
++            # without label dropout. A zero label vector is EDM2's unconditional input (see Precond.forward).
++            keep = (torch.rand([labels.shape[0], 1], device=labels.device) >= self.label_dropout).to(labels.dtype)
++            labels = labels * keep
+         denoised, logvar = net(images + noise, sigma, labels, return_logvar=True)
+         loss = (weight / logvar.exp()) * ((denoised - images) ** 2) + logvar
+         return loss
+--- a/train_edm2.py
++++ b/train_edm2.py
+@@ -74,6 +74,7 @@
+     c.update(total_nimg=opts.duration, batch_size=opts.batch)
+     c.network_kwargs = dnnlib.EasyDict(class_name='training.networks_edm2.Precond', model_channels=opts.channels, dropout=opts.dropout)
+     c.loss_kwargs = dnnlib.EasyDict(class_name='training.training_loop.EDM2Loss', P_mean=opts.P_mean, P_std=opts.P_std)
++    c.loss_kwargs.label_dropout = opts.get('label_dropout', 0.0)
+     c.lr_kwargs = dnnlib.EasyDict(func_name='training.training_loop.learning_rate_schedule', ref_lr=opts.lr, ref_batches=opts.decay)
+ 
+     # Performance-related options.
+@@ -145,6 +146,7 @@
+ @click.option('--outdir',           help='Where to save the results', metavar='DIR',            type=str, required=True)
+ @click.option('--data',             help='Path to the dataset', metavar='ZIP|DIR',              type=str, required=True)
+ @click.option('--cond',             help='Train class-conditional model', metavar='BOOL',       type=bool, default=True, show_default=True)
++@click.option('--label-dropout',    help='Probability of zeroing the class label (classifier-free guidance)', metavar='FLOAT', type=click.FloatRange(min=0, max=1), default=0.0, show_default=True)
+ @click.option('--preset',           help='Configuration preset', metavar='STR',                 type=str, default='edm2-img512-s', show_default=True)
+ 
+ # Hyperparameters.
