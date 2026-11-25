@@ -3,7 +3,7 @@
   python3 user_study/arena/build.py                         # -> arena/public/index.html + arena/public/s/NNN.webp
   python3 user_study/arena/build.py --import-db DIR         # also write arena/import.sql from a JSON export of an earlier copy's votes/
   python3 user_study/arena/build.py --offline DIR           # an offline copy: DIR/index.html + DIR/s/, no server
-  python3 user_study/arena/build.py --single FILE.html      # the same copy as one file, sprites inlined (supplementary/)
+  python3 user_study/arena/build.py --single FILE.html      # the same copy as one file, sprites inlined (user_study/user-study.html)
 
 The offline copy needs no network: "Everyone" is the anonymised votes behind the paper (reproduce/data/
 user_study_votes.json, people only), and a visitor's own votes stay in their browser ("Just me"). Sprites are
