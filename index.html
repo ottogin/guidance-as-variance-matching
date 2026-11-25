@@ -25,7 +25,7 @@
   h1.title { font-weight:700; letter-spacing:-.01em; }
   .authors a { text-decoration:none; }
   .affil { color:var(--muted); }
-  .btn-pill { border-radius:999px; padding:.45rem 1.1rem; }
+  .btn-pill { border-radius:.4rem; padding:.45rem 1.1rem; }
   section { scroll-margin-top:72px; }
   .section-title { font-weight:600; margin-bottom:.8rem; }
   .figure-caption { color:var(--muted); font-size:.92rem; }
@@ -33,7 +33,7 @@
   /* interactive figure */
   #story-wrap { position:relative; border:1px solid #dee2e6; border-radius:.75rem; overflow:hidden; background:#fff; }
   #story { display:block; width:100%; height:auto; touch-action:pan-y; }
-  .steps .nav-link { color:var(--ink); border-radius:999px; padding:.3rem .85rem; font-size:.95rem; }
+  .steps .nav-link { color:var(--ink); border-radius:.4rem; padding:.3rem .85rem; font-size:.95rem; }
   .steps .nav-link.active { background:var(--ink); color:#fff; }
   .step-text { min-height:9.5rem; }
   .readout { font-variant-numeric:tabular-nums; }
@@ -200,24 +200,6 @@ python compute_w.py --guidance cfg \
       users prefer it to hand-crafted schedules on SD 3.5 Medium.</p>
     <div class="row g-4" id="gallery"></div>
     <p class="small mt-3"><a href="https://github.com/ottogin/guidance-as-variance-matching/tree/main/samples">All samples, including video, audio and motion &rarr;</a></p>
-  </section>
-
-  <section class="my-5" id="abstract">
-    <h3 class="section-title">Abstract</h3>
-    <p class="col-lg-10">Guidance repels the prediction of a diffusion model away from a weaker reference prediction.
-      It substantially improves sample quality, but its mechanism remains poorly understood. We first find that, at the
-      scales used in practice, guidance does not improve the prediction of the posterior mean (the model's training
-      target); it makes the prediction worse, while samples improve. Second, posterior-mean predictions have less
-      variance than the data, and we find that guidance restores it. We introduce <em>variance-matched guidance</em>:
-      a closed-form rule that picks the guidance scale by matching the variance of the guided predictions to that of
-      the data. Without tuning, it recovers the hand-picked scales of eleven widely used models across image, video,
-      audio, motion, and world generation; to our knowledge, no previous explanation of guidance predicts them.
-      Applied per noise level, it yields a schedule without tuned hyperparameters that users prefer to hand-crafted
-      ones on SD 3.5 Medium. Third, we offer an interpretation of the mechanism behind guidance: each model makes a
-      random error in predicting the posterior mean, and guidance rescales the difference of these errors into a
-      sample with the posterior's covariance, which improves sampling. This view also suggests two new hypotheses that
-      our experiments support: guidance can work with negative scales, and guiding a model with its own checkpoint
-      needs a larger scale than guiding it with an independently trained model.</p>
   </section>
 
   <section class="my-5" id="citing">
