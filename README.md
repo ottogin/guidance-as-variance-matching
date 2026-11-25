@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://ottogin.github.io/guidance-as-variance-matching/">Project page</a> &nbsp;·&nbsp;
+  <a href="https://ottogin.github.io/vmg/">Project page</a> &nbsp;·&nbsp;
   <a href="#compute_wpy-the-weight-of-a-guided-pair">Quick start</a> &nbsp;·&nbsp;
   <a href="reproduce/README.md">Reproduce the paper</a> &nbsp;·&nbsp;
   <a href="samples/README.md">Samples</a>
