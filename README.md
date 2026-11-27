@@ -5,6 +5,7 @@
 </p>
 
 <p align="center">
+  <a href="https://arxiv.org/abs/2611.34801">Paper (arXiv)</a> &nbsp;·&nbsp;
   <a href="https://ottogin.github.io/vmg/">Project page</a> &nbsp;·&nbsp;
   <a href="#compute_wpy-the-weight-of-a-guided-pair">Quick start</a> &nbsp;·&nbsp;
   <a href="reproduce/README.md">Reproduce the paper</a> &nbsp;·&nbsp;
@@ -140,3 +141,15 @@ python reproduce/run_all.py --launcher slurm           # all of them as chained 
 | `user_study/arena/` | the blind pairwise voting app behind the user study; its votes are in `reproduce/data/` |
 | `tests/` | CPU tests: the solver against the stored SD 3.5 Medium fit, the toy's closed forms, every match and pool, the registry against the paper |
 
+## Citation
+
+```bibtex
+@article{backour2026guidance,
+  title   = {Guidance as Variance Matching},
+  author  = {Backour, Ali and Lukoianov, Artem and Permenter, Frank and
+             Jaakkola, Tommi and Solomon, Justin and Sitzmann, Vincent},
+  journal = {arXiv preprint arXiv:2611.34801},
+  year    = {2026},
+  url     = {https://arxiv.org/abs/2611.34801}
+}
+```
